@@ -1,0 +1,6 @@
+name: MobSurge
+version: 1.0
+main: com.example.mobsurge.MobSurge
+api-version: "26.1"
+author: TuNombre
+description: Aumenta la dificultad más allá de hardcore - más mobs hostiles y más daño
