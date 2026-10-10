@@ -1,0 +1,74 @@
+# Claude Skills Library 📚
+
+Una **librería de skills de Claude Code** organizada por escenario, para que elijas
+fácilmente qué instalar según lo que necesites: ingeniería, IA, estudio, video viral,
+marketing y redes, y estudio de mercado.
+
+> Pensado para aplicarse en **tu propio Claude** (tu laptop, con tu `~/.claude`).
+> En una sesión en la nube las instalaciones son temporales; por eso esto está
+> versionado en git: lo bajas y lo corres donde los cambios se quedan.
+
+## ⚡ Uso rápido
+
+```bash
+cd claude-skills-library
+chmod +x install.sh
+
+./install.sh            # menú interactivo: elige escenarios por número
+./install.sh --list     # ver escenarios disponibles
+./install.sh base video_viral marketing   # instalar directo
+./install.sh --all      # instalar todo (no recomendado de golpe)
+```
+
+El instalador clona cada repo en `~/.claude/skills/_sources/`, detecta las carpetas
+con `SKILL.md` y las enlaza en `~/.claude/skills/`. Luego **reinicia Claude Code**.
+
+> **Windows:** usa WSL o Git Bash para correr `install.sh`.
+
+## 🗂️ Escenarios (la librería)
+
+| Escenario | Qué incluye |
+|---|---|
+| `base` | Colecciones oficiales y comunitarias grandes |
+| `ingenieria` | Metodología, TDD, agentes, revisión de código |
+| `ia_productividad` | Crear tus propias skills + MCPs de contexto/memoria |
+| `estudio` | Material de estudio (docx/pdf/pptx) + investigación |
+| `video_viral` | Video programático con Remotion (Reels/Shorts/TikTok) |
+| `marketing` | Conversión, copywriting, SEO, analytics, growth |
+| `redes_empresas` | Contenido social y gestión |
+| `estudio_mercado` | Análisis de mercado y síntesis |
+
+El detalle de cada repo (URL, nivel de confianza, descripción) está en
+[`skills.json`](./skills.json), que es la **fuente de datos** de la librería. Para
+añadir o quitar skills, edita ese archivo y las listas equivalentes en `install.sh`.
+
+## 🔌 Extras que NO son skills (se instalan aparte)
+
+Algunas herramientas muy útiles son **servidores MCP**, no skills de carpeta:
+
+- **Context7** — mete documentación de APIs con versión al contexto (menos APIs inventadas).
+- **Claude Mem** — memoria persistente entre sesiones.
+
+Se añaden con el gestor de MCP de Claude Code (`/mcp` o tu `settings.json`), siguiendo
+el README de cada proyecto. `deep-research` suele venir ya incluida en tu entorno.
+
+## ⚠️ Antes de instalar
+
+- **Instala selectivamente.** Reportes de la comunidad muestran que meter muchas skills
+  a la vez *empeora* las respuestas. Empieza por 1–2 escenarios.
+- **Revisa el código.** Son repos de terceros. Mira qué hacen antes de confiar en ellos,
+  sobre todo si traen scripts.
+- **Confianza.** En `skills.json` cada repo tiene un campo `trust` (`oficial`,
+  `comunidad-popular`, `comunidad`). Prioriza lo oficial.
+
+## 🔎 Fuentes
+
+- [Firecrawl — 14 Best Claude Code Skills](https://www.firecrawl.dev/blog/best-claude-code-skills)
+- [Analytics Vidhya — Top repos (1000+ skills)](https://www.analyticsvidhya.com/blog/2026/03/github-repositories-to-get-free-claude-code-skills/)
+- [designrevision — Awesome Claude Code Skills](https://designrevision.com/blog/awesome-claude-code-skills)
+- [buildthisnow — Best Skills 2026](https://www.buildthisnow.com/blog/guide/mechanics/best-claude-code-skills-2026)
+- [Star History — BehiSecc/awesome-claude-skills](https://www.star-history.com/behisecc/awesome-claude-skills)
+- [marketingskills (fork con .skill listos)](https://github.com/mysticaltech/marketingskills)
+- [width.ai — Claude skills for marketing](https://www.width.ai/post/claude-skills-for-marketing)
+- [Nemo — Remotion Agent Skills](https://www.nemovideo.com/blog/remotion-agent-skills-claude-code-guide)
+- [wshuyi/remotion-video-skill](https://gittrend.io/repo/wshuyi/remotion-video-skill)
