@@ -25,6 +25,42 @@ con `SKILL.md` y las enlaza en `~/.claude/skills/`. Luego **reinicia Claude Code
 
 > **Windows:** usa WSL o Git Bash para correr `install.sh`.
 
+## 💻 Pasos en la laptop (paso a paso)
+
+1. **Baja esta rama:**
+   ```bash
+   git fetch origin claude/skills-repos-research-k788cw
+   git checkout claude/skills-repos-research-k788cw
+   ```
+2. **Entra a la librería y da permisos al instalador:**
+   ```bash
+   cd claude-skills-library
+   chmod +x install.sh
+   ```
+3. **Instala pocos escenarios primero** (empieza por 1–2, no todo):
+   ```bash
+   ./install.sh base
+   # cuando ya funcione, suma lo que quieras:
+   ./install.sh video_viral marketing
+   ```
+4. **Activa las plantillas a medida** y rellénalas:
+   ```bash
+   cp -r templates/estudio-a-medida ~/.claude/skills/
+   cp -r templates/marca-marketing ~/.claude/skills/
+   # edita cada SKILL.md buscando los marcadores <<RELLENA: ...>>
+   ```
+5. **Reinicia Claude Code** para que cargue las skills nuevas.
+6. **Verifica** que aparezcan: abre Claude Code y comprueba que las skills estén listadas; si no, revisa que existan en `~/.claude/skills/`.
+7. **Crea la skill de guiones de video** conmigo usando `skill-creator` (ver abajo).
+
+### Para quitar algo
+Borra el enlace de la skill en `~/.claude/skills/` (y su fuente en `~/.claude/skills/_sources/`).
+
+### Siguiente paso: skill de guiones de video
+Cuando estés en la laptop, escríbeme para armarla juntos con `skill-creator`,
+ajustada a tu nicho y plataformas. Ten a mano: tu nicho, en qué plataformas publicas,
+y 2–3 videos de referencia que te gusten.
+
 ## 🗂️ Escenarios (la librería)
 
 | Escenario | Qué incluye |
