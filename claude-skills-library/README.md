@@ -42,6 +42,22 @@ El detalle de cada repo (URL, nivel de confianza, descripción) está en
 [`skills.json`](./skills.json), que es la **fuente de datos** de la librería. Para
 añadir o quitar skills, edita ese archivo y las listas equivalentes en `install.sh`.
 
+## 🧩 Plantillas a medida (`templates/`)
+
+Dos skills propias listas para rellenar (busca los marcadores `<<RELLENA: ...>>`):
+
+- **`templates/estudio-a-medida/`** — material de estudio según tu rúbrica y prioridades de nota.
+- **`templates/marca-marketing/`** — contenido y campañas en la voz de tu marca.
+
+Para activarlas, copia la carpeta a tus skills:
+
+```bash
+cp -r templates/estudio-a-medida ~/.claude/skills/
+cp -r templates/marca-marketing ~/.claude/skills/
+```
+
+Luego edita el `SKILL.md` de cada una con tus datos y reinicia Claude Code.
+
 ## 🔌 Extras que NO son skills (se instalan aparte)
 
 Algunas herramientas muy útiles son **servidores MCP**, no skills de carpeta:
