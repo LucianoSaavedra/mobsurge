@@ -82,12 +82,26 @@ enseña en la demo.
 4. Se recomienda si supera el umbral (`--threshold`, def. 15) y entra en el top
    (`--top`, def. 3). El resto es "ruido".
 
+## Detección de conflictos
+
+Skills que se solapan confunden al router (compiten siempre para lo mismo). El modo
+`--conflicts` compara los perfiles de términos+conceptos de cada par de skills por
+similitud de coseno y lista las parejas redundantes:
+
+```bash
+python3 skill_router.py --conflicts --demo
+python3 skill_router.py --conflicts --catalog ../skills.json
+```
+
+En el catálogo real detecta, por ejemplo, `remotion-skills ⇄ remotion-video-skill`
+(0.69) — hacen casi lo mismo; conviene dejar una activa.
+
 ## Siguientes pasos (hoja de ruta)
 
 - ✅ **Capa de conceptos** — sinónimos por recurso curado (+21 pts top-1). *Hecho.*
+- ✅ **Detección de conflictos** — skills que compiten o se solapan. *Hecho.*
 - **Scorer por embeddings** — capturar significado automáticamente, sin listas a mano.
 - **Scorer LLM** — pedir a Claude que elija y justifique (modo de alta calidad).
-- **Detección de conflictos** — skills que compiten o se solapan.
 - **Aprendizaje** — ajustar según lo que al usuario le funciona.
 - **Integración** — exponerlo como hook/slash-command dentro de Claude Code.
 

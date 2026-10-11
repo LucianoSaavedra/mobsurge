@@ -192,6 +192,41 @@ def score_skills(skills: list[Skill], query: str, use_concepts: bool = True) -> 
     return results
 
 
+def detect_conflicts(skills: list[Skill], threshold: float = 0.35,
+                     use_concepts: bool = True) -> list[dict]:
+    """Detecta pares de skills que se solapan (perfiles de términos parecidos).
+
+    Usa similitud de coseno sobre los vectores de términos+conceptos. Pares por
+    encima del umbral son candidatos a redundancia/competencia: tener ambas activas
+    confunde al router.
+    """
+    for s in skills:
+        s.build_terms(use_concepts=use_concepts)
+
+    def cosine(a: dict[str, int], b: dict[str, int]) -> float:
+        common = set(a) & set(b)
+        if not common:
+            return 0.0
+        dot = sum(a[t] * b[t] for t in common)
+        na = math.sqrt(sum(v * v for v in a.values()))
+        nb = math.sqrt(sum(v * v for v in b.values()))
+        return dot / (na * nb) if na and nb else 0.0
+
+    pairs = []
+    for i in range(len(skills)):
+        for j in range(i + 1, len(skills)):
+            sim = cosine(skills[i].terms, skills[j].terms)
+            if sim >= threshold:
+                shared = sorted(set(skills[i].terms) & set(skills[j].terms))
+                pairs.append({
+                    "a": skills[i].name, "b": skills[j].name,
+                    "similarity": round(sim, 2),
+                    "shared": _pretty([t for t in shared]),
+                })
+    pairs.sort(key=lambda p: -p["similarity"])
+    return pairs
+
+
 def _pretty(matched: list[str]) -> list[str]:
     """Convierte tokens de concepto a algo legible para el 'motivo'."""
     out = []
@@ -218,13 +253,14 @@ def main(argv: list[str]) -> int:
     p.add_argument("--catalog", type=Path, help="skills.json del catalogo")
     p.add_argument("--demo", action="store_true", help="usa skills de ejemplo")
     p.add_argument("--no-concepts", action="store_true", help="apaga la capa de conceptos (baseline)")
+    p.add_argument("--conflicts", action="store_true", help="lista skills que se solapan (sin query)")
     p.add_argument("--top", type=int, default=3, help="max recomendadas (def 3)")
     p.add_argument("--threshold", type=int, default=15, help="score minimo para recomendar (def 15)")
     p.add_argument("--json", action="store_true", help="salida JSON")
     args = p.parse_args(argv)
 
     query = " ".join(args.query).strip()
-    if not query:
+    if not query and not args.conflicts:
         p.error("falta el mensaje. Ej: skill_router.py 'preparar examen de calculo'")
 
     # Resolucion de fuente de skills
@@ -249,6 +285,21 @@ def main(argv: list[str]) -> int:
     if not skills:
         print("No encontre skills. Usa --demo, --skills-dir o --catalog.", file=sys.stderr)
         return 1
+
+    if args.conflicts:
+        pairs = detect_conflicts(skills, use_concepts=not args.no_concepts)
+        if args.json:
+            print(json.dumps({"source": src_label, "conflicts": pairs}, ensure_ascii=False, indent=2))
+            return 0
+        print(f"\n⚠️  Conflictos / solapamientos entre skills  ({src_label}, {len(skills)} skills)\n")
+        if not pairs:
+            print("   Ninguno por encima del umbral. 👍\n")
+            return 0
+        for p_ in pairs:
+            print(f"   {p_['similarity']:.2f}  {p_['a']}  ⇄  {p_['b']}")
+            print(f"         comparten: {', '.join(p_['shared'][:10])}")
+        print("\n   Sugerencia: si dos compiten siempre para lo mismo, deja una activa.\n")
+        return 0
 
     results = score_skills(skills, query, use_concepts=not args.no_concepts)
     recommended, noise = classify(results, args.top, args.threshold)
