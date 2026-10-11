@@ -37,6 +37,43 @@ borré; mejor hacerla bien con skill-creator.)
 Para esa skill tendré a mano: mi nicho, en qué plataformas publico, y 2–3 videos de
 referencia que me gusten.
 
+## Proyecto para premio: Skill Router (YA EMPEZADO ✅)
+
+Decidimos construir un proyecto realista para concurso: una IA que, según el contexto
+del chat, decide **qué skills conviene usar en el momento**. Idea en
+`IDEA-SKILL-ROUTER.md`.
+
+**Ya está construido y funciona** en `claude-skills-library/skill-router/`:
+- `skill_router.py` — lee skills (de `~/.claude/skills` o del `skills.json`), y dado un
+  mensaje **rankea, recomienda, marca ruido y explica el motivo**. Sin dependencias.
+  Uso: `python3 skill_router.py --demo "guion para un reel"`.
+- `eval.py` — benchmark con casos etiquetados (top-1/top-3). Da **100%** en el set de
+  demo (set pequeño y favorable; es punto de partida, no prueba definitiva).
+- `README.md` — qué hace, cómo medir y hoja de ruta.
+
+**Estado honesto:** el baseline es coincidencia de palabras clave ponderada (IDF).
+Funciona y es explicable, pero el salto a "ganador" está pendiente.
+
+**Siguientes pasos para la versión premiable (hoja de ruta):**
+1. Scorer por **embeddings** (entender significado/sinónimos, no solo palabras).
+2. Scorer **LLM** (que Claude elija y justifique) como modo de alta calidad.
+3. **Detección de conflictos** entre skills que se solapan.
+4. **Aprendizaje** de las preferencias del usuario.
+5. **Integración** en Claude Code como hook o slash-command.
+El diseño deja el *scorer* aislado para enchufar lo anterior sin reescribir el resto.
+
+## Otra tarea pendiente
+
+Crear la skill de guiones de video con `skill-creator` en la laptop (persistente),
+ajustada a mi nicho y plataformas. Tendré a mano: nicho, plataformas donde publico, y
+2–3 videos de referencia.
+
+## Estado del repo
+
+Todo subido a la rama `claude/skills-repos-research-k788cw`. **PR #1** abierto hacia
+`main`: https://github.com/LucianoSaavedra/mobsurge/pull/1
+
 ## Siguiente acción esperada
 
-Ayúdame a crear esa skill de guiones con `skill-creator` y guárdala en `~/.claude/skills/`.
+Retomar el Skill Router: elegir e implementar el scorer por embeddings o LLM (paso 1 o
+2 de la hoja de ruta) y ampliar el benchmark con más casos y skills reales.
