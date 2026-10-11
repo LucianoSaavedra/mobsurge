@@ -51,15 +51,26 @@ del chat, decide **qué skills conviene usar en el momento**. Idea en
   demo (set pequeño y favorable; es punto de partida, no prueba definitiva).
 - `README.md` — qué hace, cómo medir y hoja de ruta.
 
-**Estado honesto:** el baseline es coincidencia de palabras clave ponderada (IDF).
-Funciona y es explicable, pero el salto a "ganador" está pendiente.
+**Añadido después (funciona y medido):**
+- `concepts.py` — capa de conceptos/sinónimos. Mejora el benchmark de **63.2% → 84.2%
+  top-1 (+21 pts)**. Se apaga con `--no-concepts`.
+- Benchmark ampliado a 19 casos (directos, sinónimos, negativos) con
+  `python3 eval.py --compare` (baseline vs conceptos).
+- Detección de conflictos: `python3 skill_router.py --conflicts` lista skills que se
+  solapan (coseno). Detecta p.ej. remotion-skills ⇄ remotion-video-skill (0.69).
+
+**Estado honesto:** el scorer sigue siendo léxico (palabras + conceptos curados).
+Explicable y medible, pero el salto a "ganador" necesita un scorer semántico.
 
 **Siguientes pasos para la versión premiable (hoja de ruta):**
-1. Scorer por **embeddings** (entender significado/sinónimos, no solo palabras).
-2. Scorer **LLM** (que Claude elija y justifique) como modo de alta calidad.
-3. **Detección de conflictos** entre skills que se solapan.
-4. **Aprendizaje** de las preferencias del usuario.
-5. **Integración** en Claude Code como hook o slash-command.
+1. ✅ Capa de conceptos (sinónimos). HECHO.
+2. ✅ Detección de conflictos. HECHO.
+3. Scorer por **embeddings** (significado automático). PENDIENTE — necesita descargar
+   un modelo; mejor en la laptop o con dependencias instalables.
+4. Scorer **LLM** (que Claude elija y justifique). PENDIENTE — necesita
+   `ANTHROPIC_API_KEY` o correr en la laptop con la sesión de Claude autenticada.
+5. **Aprendizaje** de preferencias del usuario. PENDIENTE.
+6. **Integración** en Claude Code como hook o slash-command. PENDIENTE.
 El diseño deja el *scorer* aislado para enchufar lo anterior sin reescribir el resto.
 
 ## Otra tarea pendiente
