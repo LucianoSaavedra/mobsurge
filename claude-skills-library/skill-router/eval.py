@@ -52,8 +52,12 @@ CASES = [
 ]
 
 
-def eval_one(skills, msg, expected, use_concepts, top, threshold):
-    results = score_skills(skills, msg, use_concepts=use_concepts)
+def eval_one(skills, msg, expected, use_concepts, top, threshold, use_llm=False):
+    if use_llm:
+        from llm_scorer import llm_score
+        results = llm_score(skills, msg)
+    else:
+        results = score_skills(skills, msg, use_concepts=use_concepts)
     recommended, _ = classify(results, top, threshold)
     rec_names = [r["name"] for r in recommended]
     if expected is None:
@@ -65,13 +69,13 @@ def eval_one(skills, msg, expected, use_concepts, top, threshold):
     return rec_names, hit1, hit3
 
 
-def run(use_concepts: bool, top: int = 3, threshold: int = 15) -> dict:
+def run(use_concepts: bool, top: int = 3, threshold: int = 15, use_llm: bool = False) -> dict:
     skills = demo_skills()
     total = len(CASES)
     top1 = top3 = 0
     details = []
     for msg, expected, kind in CASES:
-        rec_names, hit1, hit3 = eval_one(skills, msg, expected, use_concepts, top, threshold)
+        rec_names, hit1, hit3 = eval_one(skills, msg, expected, use_concepts, top, threshold, use_llm)
         top1 += int(hit1)
         top3 += int(hit3)
         details.append({"query": msg, "expected": expected, "kind": kind,
@@ -86,18 +90,31 @@ def main(argv: list[str]) -> int:
     p = argparse.ArgumentParser(description="Benchmark del Skill Router")
     p.add_argument("--json", action="store_true")
     p.add_argument("--compare", action="store_true", help="baseline vs conceptos")
+    p.add_argument("--llm", action="store_true",
+                   help="con --compare, añade el scorer LLM (1 llamada a Claude por caso)")
     args = p.parse_args(argv)
 
     if args.compare:
         base = run(use_concepts=False)
         conc = run(use_concepts=True)
+        llm = run(use_concepts=True, use_llm=True) if args.llm else None
         if args.json:
-            print(json.dumps({"baseline": base, "concepts": conc}, ensure_ascii=False, indent=2))
+            out = {"baseline": base, "concepts": conc}
+            if llm:
+                out["llm"] = llm
+            print(json.dumps(out, ensure_ascii=False, indent=2))
             return 0
-        print(f"\n📊 Skill Router — baseline vs conceptos ({base['total']} casos)\n")
+        print(f"\n📊 Skill Router — comparativa de scorers ({base['total']} casos)\n")
         print(f"   {'':12} {'Top-1':>8} {'Top-3':>8}")
         print(f"   {'baseline':12} {base['top1_accuracy']:>7}% {base['top3_accuracy']:>7}%")
         print(f"   {'+conceptos':12} {conc['top1_accuracy']:>7}% {conc['top3_accuracy']:>7}%")
+        if llm:
+            print(f"   {'LLM':12} {llm['top1_accuracy']:>7}% {llm['top3_accuracy']:>7}%")
+            fails = [d for d in llm["details"] if not d["top1"]]
+            if fails:
+                print("\n   Fallos del LLM:")
+                for d in fails:
+                    print(f"     ❌ \"{d['query'][:50]}\" → esperado {d['expected'] or '(ninguna)'}, obtuvo {d['got'] or '—'}")
         d1 = round(conc['top1_accuracy'] - base['top1_accuracy'], 1)
         print(f"\n   Mejora top-1: {'+' if d1 >= 0 else ''}{d1} puntos\n")
         print("   Casos donde los conceptos cambiaron el resultado:")

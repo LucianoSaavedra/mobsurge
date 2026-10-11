@@ -254,6 +254,8 @@ def main(argv: list[str]) -> int:
     p.add_argument("--demo", action="store_true", help="usa skills de ejemplo")
     p.add_argument("--no-concepts", action="store_true", help="apaga la capa de conceptos (baseline)")
     p.add_argument("--conflicts", action="store_true", help="lista skills que se solapan (sin query)")
+    p.add_argument("--llm", action="store_true",
+                   help="usa Claude como scorer (SDK con API key o CLI `claude`); si no hay, cae al léxico")
     p.add_argument("--top", type=int, default=3, help="max recomendadas (def 3)")
     p.add_argument("--threshold", type=int, default=15, help="score minimo para recomendar (def 15)")
     p.add_argument("--json", action="store_true", help="salida JSON")
@@ -301,7 +303,17 @@ def main(argv: list[str]) -> int:
         print("\n   Sugerencia: si dos compiten siempre para lo mismo, deja una activa.\n")
         return 0
 
-    results = score_skills(skills, query, use_concepts=not args.no_concepts)
+    scorer = "léxico+conceptos" if not args.no_concepts else "léxico"
+    results = None
+    if args.llm:
+        from llm_scorer import llm_score, LLMUnavailable, available_backend
+        try:
+            results = llm_score(skills, query)
+            scorer = f"LLM ({available_backend()})"
+        except LLMUnavailable as e:
+            print(f"⚠️  Scorer LLM no disponible ({e}); uso el léxico.", file=sys.stderr)
+    if results is None:
+        results = score_skills(skills, query, use_concepts=not args.no_concepts)
     recommended, noise = classify(results, args.top, args.threshold)
 
     if args.json:
@@ -314,7 +326,7 @@ def main(argv: list[str]) -> int:
         return 0
 
     print(f"\n🧭 Skill Router — contexto: \"{query}\"")
-    print(f"   fuente de skills: {src_label}  ({len(skills)} skills)\n")
+    print(f"   fuente de skills: {src_label}  ({len(skills)} skills)  ·  scorer: {scorer}\n")
     if recommended:
         print("✅ Usa estas ahora:")
         for r in recommended:
