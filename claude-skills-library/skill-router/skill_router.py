@@ -35,6 +35,8 @@ import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from concepts import expand_tokens
+
 # --- Stopwords ES/EN basicas (no exhaustivo, suficiente para el baseline) ----
 STOPWORDS = set("""
 a al algo ante antes como con contra de del desde donde durante e el ella ellas
@@ -65,10 +67,13 @@ class Skill:
     source: str = ""
     terms: dict[str, int] = field(default_factory=dict)  # term -> frecuencia
 
-    def build_terms(self) -> None:
+    def build_terms(self, use_concepts: bool = True) -> None:
         blob = f"{self.name} {self.name} {self.scenario} {self.description}"
+        toks = tokenize(blob)
+        if use_concepts:
+            toks = expand_tokens(toks)
         self.terms = {}
-        for t in tokenize(blob):
+        for t in toks:
             self.terms[t] = self.terms.get(t, 0) + 1
 
 
@@ -152,10 +157,9 @@ def demo_skills() -> list[Skill]:
 
 
 # --- Scoring (baseline IDF) --------------------------------------------------
-def score_skills(skills: list[Skill], query: str) -> list[dict]:
+def score_skills(skills: list[Skill], query: str, use_concepts: bool = True) -> list[dict]:
     for s in skills:
-        if not s.terms:
-            s.build_terms()
+        s.build_terms(use_concepts=use_concepts)
     n = max(1, len(skills))
     # document frequency por termino
     df: dict[str, int] = {}
@@ -167,6 +171,8 @@ def score_skills(skills: list[Skill], query: str) -> list[dict]:
         return math.log((n + 1) / (df.get(t, 0) + 1)) + 1.0
 
     q_terms = tokenize(query)
+    if use_concepts:
+        q_terms = expand_tokens(q_terms)
     q_unique = list(dict.fromkeys(q_terms))
     total_idf = sum(idf(t) for t in q_unique) or 1.0
 
@@ -186,6 +192,17 @@ def score_skills(skills: list[Skill], query: str) -> list[dict]:
     return results
 
 
+def _pretty(matched: list[str]) -> list[str]:
+    """Convierte tokens de concepto a algo legible para el 'motivo'."""
+    out = []
+    for m in matched:
+        if m.startswith("concept:"):
+            out.append(f"~{m.split(':', 1)[1]}")
+        else:
+            out.append(m)
+    return out
+
+
 def classify(results: list[dict], top: int, threshold: int) -> tuple[list[dict], list[dict]]:
     recommended = [r for r in results if r["score"] >= threshold][:top]
     rec_names = {r["name"] for r in recommended}
@@ -200,6 +217,7 @@ def main(argv: list[str]) -> int:
     p.add_argument("--skills-dir", type=Path, help="carpeta de skills (SKILL.md por subcarpeta)")
     p.add_argument("--catalog", type=Path, help="skills.json del catalogo")
     p.add_argument("--demo", action="store_true", help="usa skills de ejemplo")
+    p.add_argument("--no-concepts", action="store_true", help="apaga la capa de conceptos (baseline)")
     p.add_argument("--top", type=int, default=3, help="max recomendadas (def 3)")
     p.add_argument("--threshold", type=int, default=15, help="score minimo para recomendar (def 15)")
     p.add_argument("--json", action="store_true", help="salida JSON")
@@ -232,7 +250,7 @@ def main(argv: list[str]) -> int:
         print("No encontre skills. Usa --demo, --skills-dir o --catalog.", file=sys.stderr)
         return 1
 
-    results = score_skills(skills, query)
+    results = score_skills(skills, query, use_concepts=not args.no_concepts)
     recommended, noise = classify(results, args.top, args.threshold)
 
     if args.json:
@@ -249,7 +267,7 @@ def main(argv: list[str]) -> int:
     if recommended:
         print("✅ Usa estas ahora:")
         for r in recommended:
-            motivo = ", ".join(r["matched"]) if r["matched"] else "coincidencia general"
+            motivo = ", ".join(_pretty(r["matched"])) if r["matched"] else "coincidencia general"
             etq = f" [{r['scenario']}]" if r["scenario"] else ""
             print(f"   {r['score']:3d}%  {r['name']}{etq}")
             print(f"         motivo: {motivo}")

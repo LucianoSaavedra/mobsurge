@@ -34,20 +34,42 @@ python3 skill_router.py --json "..."     # salida JSON (para integrar)
 Sin flags, intenta `~/.claude/skills`; si no hay, usa el `skills.json` vecino; si
 tampoco, cae a skills de demo.
 
+## Capa de conceptos (semántica ligera)
+
+El baseline por palabras clave falla con sinónimos: "repasar para la prueba" no
+coincide con una skill que dice "examen". La capa de conceptos (`concepts.py`) mapea
+familias de términos a un concepto canónico (estudio, video, marketing, redes,
+revisión de código, depuración, investigación) y expande mensaje y skills con sus
+conceptos antes de puntuar. Es un recurso curado y auditable, sin modelos ni
+dependencias. Se puede apagar con `--no-concepts` para comparar.
+
 ## Medición (clave para la demo / premio)
 
 ```bash
-python3 eval.py          # precisión top-1 y top-3 sobre casos etiquetados
+python3 eval.py             # tabla detallada (con conceptos)
+python3 eval.py --compare   # baseline vs conceptos (el número clave)
 python3 eval.py --json
 ```
 
-Un benchmark con casos `mensaje → skill correcta`. Da un número claro de antes/después
-para enseñar en una presentación.
+El benchmark tiene 19 casos de tres tipos: **directos**, **sinónimos** (donde los
+conceptos ayudan) y **negativos** (no debe activarse ninguna skill).
 
-> **Honestidad sobre los resultados:** el baseline actual es de coincidencia de
-> palabras clave ponderada (tipo IDF). Con el set de demo da 100%, pero es un set
-> pequeño y favorable; **no** prueba calidad general. El valor real se vería con más
-> casos, skills reales y comparando contra un scorer más fuerte.
+**Resultado medido (set de demo):**
+
+| Scorer        | Top-1  | Top-3  |
+|---------------|--------|--------|
+| baseline      | 63.2%  | 63.2%  |
+| **+conceptos**| 84.2%  | 89.5%  |
+
+La capa de conceptos mejora el top-1 en **+21 puntos**. Ese antes/después es lo que se
+enseña en la demo.
+
+> **Honestidad sobre los resultados:** es un set pequeño y hecho por nosotros, así que
+> estos números orientan pero **no** prueban calidad general. Hay fallos reales que
+> dejamos a la vista a propósito: un caso de estudio que se queda bajo el umbral, un
+> falso positivo ("chiste corto" → video por la palabra "corto"), y skills que a veces
+> aparecen juntas en top-3. El valor real se vería con más casos, skills reales y un
+> scorer más fuerte (embeddings/LLM).
 
 ## Cómo se decide la puntuación (transparente)
 
@@ -62,7 +84,8 @@ para enseñar en una presentación.
 
 ## Siguientes pasos (hoja de ruta)
 
-- **Scorer por embeddings** — capturar significado, no solo palabras (sinónimos).
+- ✅ **Capa de conceptos** — sinónimos por recurso curado (+21 pts top-1). *Hecho.*
+- **Scorer por embeddings** — capturar significado automáticamente, sin listas a mano.
 - **Scorer LLM** — pedir a Claude que elija y justifique (modo de alta calidad).
 - **Detección de conflictos** — skills que compiten o se solapan.
 - **Aprendizaje** — ajustar según lo que al usuario le funciona.
