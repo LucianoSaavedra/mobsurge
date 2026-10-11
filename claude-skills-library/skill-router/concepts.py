@@ -8,6 +8,9 @@ expanden con sus conceptos, así los sinónimos coinciden.
 
 Es un recurso curado y explícito (no mágico): fácil de auditar y de ampliar.
 Todos los términos van sin acentos y en minúscula (igual que el tokenizador).
+
+Los verbos aparecen en infinitivo y también en imperativo ("revisa", "investiga",
+"depura"...), porque así es como se le suelen pedir las cosas a un asistente.
 """
 
 from __future__ import annotations
@@ -15,16 +18,16 @@ from __future__ import annotations
 # concepto canónico -> términos de superficie que lo activan
 CONCEPTS: dict[str, list[str]] = {
     "estudio": [
-        "estudiar", "estudio", "examen", "prueba", "parcial", "final", "repasar",
-        "repaso", "apuntes", "materia", "tarea", "deberes", "nota", "notas",
-        "calificacion", "calificaciones", "flashcards", "fichas", "resumen",
-        "resumenes", "simulacro", "rubrica", "aprender", "temario", "test",
-        "quiz", "universidad", "clase",
+        "estudiar", "estudia", "estudio", "examen", "prueba", "parcial", "final",
+        "repasar", "repasa", "repaso", "apuntes", "materia", "tarea", "deberes",
+        "nota", "notas", "calificacion", "calificaciones", "flashcards", "fichas",
+        "resumen", "resumenes", "simulacro", "rubrica", "aprender", "aprende",
+        "temario", "test", "quiz", "universidad", "clase",
     ],
     "video": [
         "video", "videos", "reel", "reels", "short", "shorts", "tiktok", "guion",
         "guiones", "clip", "viral", "gancho", "escena", "escenas", "cta",
-        "edicion", "grabar", "montaje", "youtube", "vertical",
+        "edicion", "grabar", "graba", "montaje", "youtube", "vertical",
     ],
     "marketing": [
         "marketing", "copy", "copywriting", "publicidad", "anuncio", "anuncios",
@@ -38,18 +41,20 @@ CONCEPTS: dict[str, list[str]] = {
         "engagement", "comunidad", "contenido",
     ],
     "revision_codigo": [
-        "revisar", "revision", "review", "pull", "request", "diff", "bug", "bugs",
-        "seguridad", "vulnerabilidad", "inyeccion", "rendimiento", "refactor",
-        "calidad", "lint", "merge", "commit",
+        "revisar", "revisa", "revisame", "revision", "review", "pull", "request",
+        "pr", "prs", "diff", "bug", "bugs", "seguridad", "vulnerabilidad",
+        "inyeccion", "rendimiento", "refactor", "calidad", "lint", "merge",
+        "commit",
     ],
     "depuracion": [
-        "debug", "depurar", "diagnosticar", "reproducir", "stack", "trace",
-        "traceback", "fallo", "crash", "excepcion", "error", "errores", "roto",
+        "debug", "depurar", "depura", "diagnosticar", "diagnostica", "reproducir",
+        "reproduce", "stack", "trace", "traceback", "fallo", "crash", "excepcion",
+        "error", "errores", "roto",
     ],
     "investigacion": [
-        "investigar", "investigacion", "mercado", "tendencias", "tendencia",
-        "comparar", "comparativa", "fuentes", "informe", "reporte", "analisis",
-        "competencia", "benchmark", "estudio",
+        "investigar", "investiga", "investigacion", "mercado", "tendencias",
+        "tendencia", "comparar", "compara", "comparativa", "fuentes", "informe",
+        "reporte", "analisis", "analiza", "competencia", "benchmark", "estudio",
     ],
 }
 
@@ -57,7 +62,9 @@ CONCEPTS: dict[str, list[str]] = {
 _TERM_TO_CONCEPTS: dict[str, list[str]] = {}
 for _concept, _terms in CONCEPTS.items():
     for _t in _terms:
-        _TERM_TO_CONCEPTS.setdefault(_t, []).append(_concept)
+        _lst = _TERM_TO_CONCEPTS.setdefault(_t, [])
+        if _concept not in _lst:  # un término repetido no duplica el concepto
+            _lst.append(_concept)
 
 
 def concepts_for(term: str) -> list[str]:

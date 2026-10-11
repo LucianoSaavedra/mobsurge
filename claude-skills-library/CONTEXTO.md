@@ -88,3 +88,19 @@ Todo subido a la rama `claude/skills-repos-research-k788cw`. **PR #1** abierto h
 
 Retomar el Skill Router: elegir e implementar el scorer por embeddings o LLM (paso 1 o
 2 de la hoja de ruta) y ampliar el benchmark con más casos y skills reales.
+
+## ⏸️ Pausa (trabajo a medias, SIN REVISAR)
+
+Se lanzó un workflow de ultracode (6 agentes) y se detuvo a mitad para ahorrar tokens.
+Lo que alcanzó a hacerse quedó commiteado como WIP, **sin revisión adversarial**:
+- Núcleo endurecido (skill_router.py, llm_scorer.py, concepts.py, eval.py): eval.py
+  tiene `--cases` y desglose por tipo; números léxicos sin cambios (63.2% / 84.2%).
+- Posiblemente incompletos: `bench/` (benchmark independiente), `tests/`,
+  `integration/` (hook UserPromptSubmit + skill) y `PITCH.md`.
+
+**Al retomar:**
+1. Revisar qué quedó completo en bench/, tests/, integration/ y PITCH.md.
+2. Correr tests: `cd skill-router && python3 -m unittest discover -s tests -v`.
+3. Correr el benchmark independiente con los 3 scorers:
+   `python3 eval.py --compare --llm --cases bench/heldout.json`.
+4. Revisión adversarial del diff, meter los números reales en PITCH.md, commit.

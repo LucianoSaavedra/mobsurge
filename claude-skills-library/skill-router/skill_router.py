@@ -19,7 +19,7 @@ Uso:
     python3 skill_router.py --json "..."     # salida JSON
     python3 skill_router.py --demo           # usa skills de ejemplo
 
-Sin --skills-dir ni --catalog intenta ~/.claude/skills; si no existe, usa el
+Sin --skills-dir ni --catalog intenta ~/.claude/skills; si no tiene skills, usa el
 skills.json vecino; si tampoco, cae a un set de demo.
 """
 
@@ -28,7 +28,6 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import os
 import re
 import sys
 import unicodedata
@@ -48,15 +47,23 @@ to was were will with your you my me i we our
 quiero necesito ayuda hazme dame crea crear
 """.split())
 
+# Tokens de 2 letras que sí informan (siglas técnicas). El resto de tokens de
+# menos de 3 letras se descarta porque casi siempre son ruido ("de", "la", "mi").
+SHORT_TOKENS = frozenset({
+    "pr", "ia", "ai", "ui", "ux", "qa", "ci", "cd", "db", "bd", "js", "ts",
+    "ml", "cv", "2d", "3d",
+})
+
 
 def strip_accents(s: str) -> str:
     return "".join(c for c in unicodedata.normalize("NFKD", s) if not unicodedata.combining(c))
 
 
 def tokenize(text: str) -> list[str]:
-    text = strip_accents(text.lower())
+    text = strip_accents((text or "").lower())
     tokens = re.findall(r"[a-z0-9]+", text)
-    return [t for t in tokens if len(t) > 2 and t not in STOPWORDS]
+    return [t for t in tokens
+            if (len(t) > 2 or t in SHORT_TOKENS) and t not in STOPWORDS]
 
 
 @dataclass
@@ -68,7 +75,9 @@ class Skill:
     terms: dict[str, int] = field(default_factory=dict)  # term -> frecuencia
 
     def build_terms(self, use_concepts: bool = True) -> None:
-        blob = f"{self.name} {self.name} {self.scenario} {self.description}"
+        name = self.name or ""
+        # `or ""`: una skill sin descripción (None) no debe aportar el token "none"
+        blob = f"{name} {name} {self.scenario or ''} {self.description or ''}"
         toks = tokenize(blob)
         if use_concepts:
             toks = expand_tokens(toks)
@@ -78,71 +87,213 @@ class Skill:
 
 
 # --- Carga de skills ---------------------------------------------------------
+_FM_KEY = re.compile(r"^([A-Za-z0-9_-]+)\s*:\s*(.*)$")
+_FM_BLOCK = re.compile(r"^[|>][+-]?[0-9]?[+-]?\s*(#.*)?$")
+_DESC_FALLBACK_MAX = 1024  # mismo límite que Claude Code para `description`
+
+
+def _unquote(v: str) -> str:
+    """Quita comillas YAML que envuelven todo el valor (sin tocar las internas)."""
+    if len(v) >= 2 and v[0] == v[-1] and v[0] in "'\"":
+        if v[0] == "'":
+            return v[1:-1].replace("''", "'")
+        try:
+            out = json.loads(v)  # YAML con comillas dobles ~ string JSON
+            if isinstance(out, str):
+                return out
+        except ValueError:
+            pass
+        return v[1:-1].replace('\\"', '"')
+    # escalar plano: en YAML, " #" inicia un comentario
+    return re.sub(r"\s+#.*$", "", v)
+
+
+def _first_paragraph(lines: list[str]) -> str:
+    """Primer párrafo de texto del cuerpo (sin títulos, código ni comentarios).
+
+    Es lo que Claude Code usa como descripción cuando el frontmatter no la trae.
+    """
+    para: list[str] = []
+    in_code = False
+    for line in lines:
+        s = line.strip()
+        if s.startswith(("```", "~~~")):
+            if para:
+                break
+            in_code = not in_code
+            continue
+        if in_code:
+            continue
+        if not s or s.startswith(("#", "<!--")) or s in ("---", "***", "___"):
+            if para:
+                break
+            continue
+        para.append(s)
+    return " ".join(para)[:_DESC_FALLBACK_MAX]
+
+
 def parse_frontmatter(skill_md: Path) -> tuple[str, str]:
-    """Extrae name y description del frontmatter YAML sin dependencias."""
+    """Extrae name y description del frontmatter YAML sin dependencias.
+
+    - Solo lee claves de primer nivel (una `name:` anidada en `metadata:` no pisa
+      el nombre de la skill).
+    - Soporta valores entre comillas, bloques `>`/`|` y escalares planos que
+      continúan en líneas indentadas.
+    - Sin `name` usa el nombre de la carpeta; sin `description` usa el primer
+      párrafo del cuerpo (igual que Claude Code).
+    - Tolera BOM, CRLF y bytes no UTF-8. Si no se puede leer, devuelve ("", "").
+    """
+    skill_md = Path(skill_md)
     try:
-        text = skill_md.read_text(encoding="utf-8")
+        text = skill_md.read_text(encoding="utf-8-sig", errors="replace")
     except OSError:
         return ("", "")
-    if not text.startswith("---"):
-        return (skill_md.parent.name, "")
-    end = text.find("\n---", 3)
-    fm = text[3:end] if end != -1 else text[3:]
-    name, desc = skill_md.parent.name, ""
-    # description puede ser multilinea con ">-"
-    lines = fm.splitlines()
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        m = re.match(r"\s*name\s*:\s*(.+)", line)
-        if m:
-            name = m.group(1).strip().strip("'\"")
-        m = re.match(r"\s*description\s*:\s*(.*)", line)
-        if m:
-            val = m.group(1).strip()
-            if val in (">", ">-", "|", "|-", ""):
-                block = []
-                i += 1
-                while i < len(lines) and (lines[i].startswith((" ", "\t")) or not lines[i].strip()):
-                    block.append(lines[i].strip())
-                    i += 1
-                desc = " ".join(x for x in block if x)
+    lines = text.splitlines()
+    dir_name = skill_md.parent.name
+    name, desc = "", ""
+
+    if lines and lines[0].strip() == "---":
+        end = next((j for j in range(1, len(lines)) if lines[j].strip() in ("---", "...")), None)
+        fm_lines = lines[1:end] if end is not None else lines[1:]
+        body = lines[end + 1:] if end is not None else []
+        i = 0
+        while i < len(fm_lines):
+            m = _FM_KEY.match(fm_lines[i])  # sin indentación = clave de primer nivel
+            i += 1
+            if not m:
                 continue
+            key, val = m.group(1).lower(), m.group(2).strip()
+            cont: list[str] = []
+            while i < len(fm_lines) and (fm_lines[i][:1] in (" ", "\t") or not fm_lines[i].strip()):
+                cont.append(fm_lines[i].strip())
+                i += 1
+            if key not in ("name", "description"):
+                continue
+            if _FM_BLOCK.match(val):
+                value = " ".join(x for x in cont if x)
             else:
-                desc = val.strip("'\"")
-        i += 1
-    return (name, desc)
+                value = _unquote(" ".join([val] + [x for x in cont if x]).strip())
+            value = " ".join(value.split())
+            if key == "name":
+                name = value
+            else:
+                desc = value
+    else:
+        body = lines
+
+    if not desc:
+        desc = _first_paragraph(body)
+    return (name or dir_name, desc)
 
 
-def load_from_dir(skills_dir: Path) -> list[Skill]:
-    skills = []
+# Carpetas que nunca son skills instaladas: `_sources` es donde install.sh clona
+# los repos; cada skill que contienen ya se enlaza arriba, en ~/.claude/skills/<x>.
+_SKIP_DIRS = frozenset({"_sources", "node_modules", "__pycache__"})
+
+
+def load_from_dir(skills_dir: Path, max_depth: int = 3) -> list[Skill]:
+    """Carga las skills (carpetas con SKILL.md) que hay bajo `skills_dir`.
+
+    - Busca hasta `max_depth` niveles: 1 es el layout estándar
+      (~/.claude/skills/<skill>/SKILL.md); 3 cubre también colecciones anidadas
+      como ~/.claude/skills/synced/<id>/<skill>/SKILL.md.
+    - No entra dentro de una skill (sus subcarpetas son recursos, no skills).
+    - Ignora carpetas ocultas y `_sources`: install.sh clona ahí los repos y enlaza
+      cada skill arriba, así que leerla duplicaría skills (y sumaría las que no se
+      enlazaron, que Claude Code tampoco carga). Si apuntas --skills-dir
+      directamente a una carpeta dentro de _sources, esa sí se lee.
+    - Dos enlaces a la misma carpeta real cuentan una sola vez.
+    - Si `skills_dir` es en sí una skill (tiene SKILL.md), devuelve solo esa.
+    """
+    skills_dir = Path(skills_dir).expanduser()
     if not skills_dir.is_dir():
-        return skills
-    for skill_md in sorted(skills_dir.glob("*/SKILL.md")):
-        if "_sources" in skill_md.parts:
-            # evita duplicar: las de _sources se enlazan arriba
-            pass
+        return []
+    skills: list[Skill] = []
+    seen: set[Path] = set()
+
+    def add(skill_dir: Path) -> None:
+        skill_md = skill_dir / "SKILL.md"
+        try:
+            real = skill_md.resolve()
+        except OSError:
+            real = skill_md
+        if real in seen:
+            return
+        seen.add(real)
         name, desc = parse_frontmatter(skill_md)
-        skills.append(Skill(name=name, description=desc, source=str(skill_md.parent)))
+        skills.append(Skill(name=name or skill_dir.name, description=desc,
+                            source=str(skill_dir)))
+
+    if (skills_dir / "SKILL.md").is_file():
+        add(skills_dir)
+        return skills
+
+    def walk(d: Path, depth: int) -> None:
+        try:
+            entries = sorted(d.iterdir(), key=lambda p: p.name)
+        except OSError:
+            return
+        for entry in entries:
+            if entry.name.startswith(".") or entry.name in _SKIP_DIRS:
+                continue
+            try:
+                if not entry.is_dir():  # sigue enlaces simbólicos
+                    continue
+                if (entry / "SKILL.md").is_file():
+                    add(entry)
+                elif depth < max_depth:
+                    walk(entry, depth + 1)
+            except OSError:
+                continue  # enlace roto o sin permisos: se salta
+
+    walk(skills_dir, 1)
     return skills
+
+
+SCENARIO_SEP = " · "
 
 
 def load_from_catalog(catalog: Path) -> list[Skill]:
-    skills = []
+    """Carga los repos del catálogo skills.json como skills.
+
+    Un mismo repo puede aparecer en varios escenarios (p.ej. anthropics-skills en
+    "base" y en "estudio"). Se deduplica por nombre: una sola skill con todos sus
+    escenarios (unidos por " · ") y sus descripciones distintas concatenadas. La
+    fuente es la URL de la primera aparición.
+    """
     try:
-        data = json.loads(catalog.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return skills
-    for key, sc in data.get("scenarios", {}).items():
-        title = sc.get("title", key)
-        for repo in sc.get("repos", []):
-            skills.append(Skill(
-                name=repo.get("name", key),
-                description=repo.get("about", ""),
-                scenario=title,
-                source=repo.get("url", "catalog"),
-            ))
-    return skills
+        data = json.loads(Path(catalog).read_text(encoding="utf-8"))
+    except (OSError, ValueError):  # ValueError cubre JSON y UTF-8 inválidos
+        return []
+    scenarios = data.get("scenarios") if isinstance(data, dict) else None
+    if not isinstance(scenarios, dict):
+        return []
+
+    merged: dict[str, dict] = {}  # nombre -> {titles, abouts, url}
+    for key, sc in scenarios.items():
+        if not isinstance(sc, dict):
+            continue
+        title = str(sc.get("title") or key).strip()
+        repos = sc.get("repos") or []
+        if not isinstance(repos, list):
+            continue
+        for repo in repos:
+            if not isinstance(repo, dict):
+                continue
+            name = str(repo.get("name") or key).strip()
+            about = " ".join(str(repo.get("about") or "").split())
+            entry = merged.setdefault(name, {"titles": [], "abouts": [],
+                                             "url": str(repo.get("url") or "catalog")})
+            if title and title not in entry["titles"]:
+                entry["titles"].append(title)
+            if about and about not in entry["abouts"]:
+                entry["abouts"].append(about)
+
+    return [Skill(name=name,
+                  description=" ".join(e["abouts"]),
+                  scenario=SCENARIO_SEP.join(e["titles"]),
+                  source=e["url"])
+            for name, e in merged.items()]
 
 
 def demo_skills() -> list[Skill]:
@@ -158,6 +309,12 @@ def demo_skills() -> list[Skill]:
 
 # --- Scoring (baseline IDF) --------------------------------------------------
 def score_skills(skills: list[Skill], query: str, use_concepts: bool = True) -> list[dict]:
+    """Puntúa cada skill (0-100) contra el mensaje.
+
+    score = 100 × IDF(términos del mensaje que la skill contiene) / IDF(todos los
+    términos del mensaje). Si el mensaje no deja ningún término útil tras
+    tokenizar (vacío, solo stopwords o signos), todas puntúan 0.
+    """
     for s in skills:
         s.build_terms(use_concepts=use_concepts)
     n = max(1, len(skills))
@@ -174,13 +331,12 @@ def score_skills(skills: list[Skill], query: str, use_concepts: bool = True) -> 
     if use_concepts:
         q_terms = expand_tokens(q_terms)
     q_unique = list(dict.fromkeys(q_terms))
-    total_idf = sum(idf(t) for t in q_unique) or 1.0
+    total_idf = sum(idf(t) for t in q_unique)
 
     results = []
     for s in skills:
         matched = [t for t in q_unique if t in s.terms]
-        gained = sum(idf(t) for t in matched)
-        score = round(100 * gained / total_idf)
+        score = round(100 * sum(idf(t) for t in matched) / total_idf) if total_idf else 0
         results.append({
             "name": s.name,
             "scenario": s.scenario,
@@ -198,7 +354,8 @@ def detect_conflicts(skills: list[Skill], threshold: float = 0.35,
 
     Usa similitud de coseno sobre los vectores de términos+conceptos. Pares por
     encima del umbral son candidatos a redundancia/competencia: tener ambas activas
-    confunde al router.
+    confunde al router. Un mismo objeto Skill repetido en la lista no se compara
+    consigo mismo.
     """
     for s in skills:
         s.build_terms(use_concepts=use_concepts)
@@ -215,13 +372,15 @@ def detect_conflicts(skills: list[Skill], threshold: float = 0.35,
     pairs = []
     for i in range(len(skills)):
         for j in range(i + 1, len(skills)):
+            if skills[i] is skills[j]:
+                continue
             sim = cosine(skills[i].terms, skills[j].terms)
             if sim >= threshold:
                 shared = sorted(set(skills[i].terms) & set(skills[j].terms))
                 pairs.append({
                     "a": skills[i].name, "b": skills[j].name,
                     "similarity": round(sim, 2),
-                    "shared": _pretty([t for t in shared]),
+                    "shared": _pretty(shared),
                 })
     pairs.sort(key=lambda p: -p["similarity"])
     return pairs
@@ -239,14 +398,40 @@ def _pretty(matched: list[str]) -> list[str]:
 
 
 def classify(results: list[dict], top: int, threshold: int) -> tuple[list[dict], list[dict]]:
-    recommended = [r for r in results if r["score"] >= threshold][:top]
-    rec_names = {r["name"] for r in recommended}
-    noise = [r for r in results if r["name"] not in rec_names and r["score"] < threshold]
+    """Separa recomendadas (score >= threshold, máx. `top`) del ruido (< threshold).
+
+    Una skill con score 0 nunca se recomienda, aunque threshold sea 0: no coincidió
+    en nada. Las que superan el umbral pero quedan fuera del top no son ni
+    recomendadas ni ruido (son relevantes, solo que hay mejores).
+    """
+    top = max(0, int(top))
+    recommended = [r for r in results if r["score"] > 0 and r["score"] >= threshold][:top]
+    rec_ids = {id(r) for r in recommended}
+    noise = [r for r in results
+             if id(r) not in rec_ids and (r["score"] < threshold or r["score"] <= 0)]
     return recommended, noise
 
 
 # --- CLI ---------------------------------------------------------------------
+def _default_skills() -> tuple[list[Skill], str]:
+    default_dir = Path.home() / ".claude" / "skills"
+    default_catalog = Path(__file__).resolve().parent.parent / "skills.json"
+    skills = load_from_dir(default_dir)
+    if skills:
+        return skills, f"dir:{default_dir}"
+    if default_catalog.exists():
+        skills = load_from_catalog(default_catalog)
+        if skills:
+            return skills, f"catalog:{default_catalog}"
+    return demo_skills(), "demo"
+
+
 def main(argv: list[str]) -> int:
+    try:  # consolas no UTF-8 (p.ej. Windows cp1252): no reventar por los emojis
+        sys.stdout.reconfigure(errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
     p = argparse.ArgumentParser(description="Skill Router MVP: recomienda skills por contexto.")
     p.add_argument("query", nargs="*", help="mensaje/contexto del usuario")
     p.add_argument("--skills-dir", type=Path, help="carpeta de skills (SKILL.md por subcarpeta)")
@@ -264,10 +449,10 @@ def main(argv: list[str]) -> int:
     query = " ".join(args.query).strip()
     if not query and not args.conflicts:
         p.error("falta el mensaje. Ej: skill_router.py 'preparar examen de calculo'")
+    if args.top < 1:
+        p.error("--top debe ser 1 o más")
 
     # Resolucion de fuente de skills
-    skills: list[Skill] = []
-    src_label = ""
     if args.demo:
         skills, src_label = demo_skills(), "demo"
     elif args.skills_dir:
@@ -275,14 +460,7 @@ def main(argv: list[str]) -> int:
     elif args.catalog:
         skills, src_label = load_from_catalog(args.catalog), f"catalog:{args.catalog}"
     else:
-        default_dir = Path.home() / ".claude" / "skills"
-        default_catalog = Path(__file__).resolve().parent.parent / "skills.json"
-        if default_dir.is_dir() and any(default_dir.glob("*/SKILL.md")):
-            skills, src_label = load_from_dir(default_dir), f"dir:{default_dir}"
-        elif default_catalog.exists():
-            skills, src_label = load_from_catalog(default_catalog), f"catalog:{default_catalog}"
-        else:
-            skills, src_label = demo_skills(), "demo"
+        skills, src_label = _default_skills()
 
     if not skills:
         print("No encontre skills. Usa --demo, --skills-dir o --catalog.", file=sys.stderr)
@@ -306,10 +484,11 @@ def main(argv: list[str]) -> int:
     scorer = "léxico+conceptos" if not args.no_concepts else "léxico"
     results = None
     if args.llm:
-        from llm_scorer import llm_score, LLMUnavailable, available_backend
+        from llm_scorer import llm_score, LLMUnavailable, available_backend, last_call_info
         try:
             results = llm_score(skills, query)
-            scorer = f"LLM ({available_backend()})"
+            scorer = f"LLM ({last_call_info.get('backend') or available_backend()}"
+            scorer += ", caché)" if last_call_info.get("cached") else ")"
         except LLMUnavailable as e:
             print(f"⚠️  Scorer LLM no disponible ({e}); uso el léxico.", file=sys.stderr)
     if results is None:
@@ -320,12 +499,14 @@ def main(argv: list[str]) -> int:
         print(json.dumps({
             "query": query,
             "source": src_label,
+            "scorer": scorer,
             "recommended": recommended,
             "noise": noise,
         }, ensure_ascii=False, indent=2))
         return 0
 
-    print(f"\n🧭 Skill Router — contexto: \"{query}\"")
+    shown_query = " ".join(query.split())  # un mensaje multilínea se muestra en una línea
+    print(f"\n🧭 Skill Router — contexto: \"{shown_query}\"")
     print(f"   fuente de skills: {src_label}  ({len(skills)} skills)  ·  scorer: {scorer}\n")
     if recommended:
         print("✅ Usa estas ahora:")
