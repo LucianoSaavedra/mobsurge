@@ -26,6 +26,8 @@ from skill_router import (
     detect_conflicts,
     load_from_catalog,
     load_from_dir,
+    match_evidence,
+    normalize_query,
     parse_frontmatter,
     score_skills,
     strip_accents,
@@ -33,6 +35,19 @@ from skill_router import (
 )
 
 CATALOG = _support.ROUTER_DIR.parent / "skills.json"
+
+# Traza real de Python pegada tras la petición (caso típico del hook).
+PY_TRACEBACK = (
+    "Traceback (most recent call last):\n"
+    '  File "/app/server/main.py", line 42, in handle_request\n'
+    '    result = process(payload["items"])\n'
+    '  File "/app/server/core.py", line 118, in process\n'
+    "    total = sum(int(x) for x in items)\n"
+    "ValueError: invalid literal for int() with base 10: 'abc'\n"
+)
+# Frase de contexto que no aporta nada a la elección de skill.
+CONTEXTO = (" Te lo pido porque es para un proyecto de la oficina que llevamos varias "
+            "semanas arrastrando con el equipo y quiero dejarlo cerrado antes del viernes.")
 
 
 # --- strip_accents / tokenize --------------------------------------------------
@@ -58,6 +73,13 @@ class TokenizeTest(unittest.TestCase):
 
     def test_separa_por_signos_y_conserva_numeros(self):
         self.assertEqual(tokenize("¿pull-request #2024? ¡sí!"), ["pull", "request", "2024"])
+
+    def test_palabras_funcionales_y_de_peticion_no_cuentan(self):
+        # En inglés "what/how/before" daban coincidencias espurias con las
+        # descripciones reales; "help/make/ayudame/tengo" no dicen de qué va.
+        self.assertEqual(tokenize("what should we do before that? please help, make it"), [])
+        self.assertEqual(tokenize("hola, tengo que hacerlo, ayudame porfa"), ["hacerlo"])
+        self.assertEqual(tokenize("how to debug this error"), ["debug", "error"])
 
     def test_texto_vacio_o_none(self):
         self.assertEqual(tokenize(""), [])
@@ -140,6 +162,39 @@ class ParseFrontmatterTest(TempDirTestCase):
         # _first_paragraph); un comentario HTML multilínea es habitual en plantillas.
         p = self.md("<!--\nnota interna\n-->\nTexto real.\n", rel="html")
         self.assertEqual(parse_frontmatter(p), ("html", "Texto real."))
+
+    def test_comentario_tras_comillas_simples_y_comillas_dentro_del_comentario(self):
+        p = self.md("---\nname: 'It''s ok' # c\ndescription: \"foo\" # dice \"bar\"\n---\n")
+        self.assertEqual(parse_frontmatter(p), ("It's ok", "foo"))
+
+    def test_almohadilla_dentro_de_comillas_no_es_comentario(self):
+        p = self.md("---\nname: 'A # B'\ndescription: \"C# rocks\" # nota\n---\n")
+        self.assertEqual(parse_frontmatter(p), ("A # B", "C# rocks"))
+
+    def test_texto_tras_comillas_que_no_es_comentario_queda_plano(self):
+        p = self.md('---\nname: pi\ndescription: "foo" bar\n---\n')
+        self.assertEqual(parse_frontmatter(p)[1], '"foo" bar')
+
+    def test_guiones_sangrados_dentro_de_un_bloque_no_cierran(self):
+        # Solo un "---" en la columna 0 cierra el frontmatter.
+        p = self.md("---\nname: rho\ndescription: |\n  antes\n  ---\n  despues\n---\ncuerpo\n")
+        self.assertEqual(parse_frontmatter(p), ("rho", "antes --- despues"))
+
+    def test_comentario_html_en_mitad_de_linea(self):
+        p = self.md("Texto <!-- oculto --> visible\nsigue aquí.\n", rel="mitad")
+        self.assertEqual(parse_frontmatter(p), ("mitad", "Texto visible sigue aquí."))
+
+    def test_texto_tras_un_comentario_de_una_linea_se_conserva(self):
+        p = self.md("<!-- plantilla v2 --> Texto tras el comentario.\n", rel="tras")
+        self.assertEqual(parse_frontmatter(p), ("tras", "Texto tras el comentario."))
+
+    def test_comentario_html_sin_cerrar_oculta_el_resto(self):
+        p = self.md("<!-- sin cerrar\nnada de esto\n", rel="abierto")
+        self.assertEqual(parse_frontmatter(p), ("abierto", ""))
+
+    def test_comentario_que_empieza_linea_corta_el_parrafo(self):
+        p = self.md("Primero.\n<!-- nota -->\nOtro párrafo.\n", rel="corta")
+        self.assertEqual(parse_frontmatter(p), ("corta", "Primero."))
 
     def test_bom_y_crlf(self):
         p = self.md("﻿---\r\nname: crlf\r\ndescription: con CRLF\r\n---\r\n")
@@ -278,6 +333,77 @@ class LoadFromCatalogTest(TempDirTestCase):
                 self.assertIn(SCENARIO_SEP, s.scenario, s.name)
 
 
+# --- normalize_query ---------------------------------------------------------------------
+class NormalizeQueryTest(unittest.TestCase):
+    def test_quita_traceback_pegado(self):
+        q = "tengo este error en produccion, ayudame a depurarlo\n" + PY_TRACEBACK
+        self.assertEqual(normalize_query(q), "tengo este error en produccion, ayudame a depurarlo")
+
+    def test_quita_bloques_de_codigo_con_cercas(self):
+        q = "mira esto:\n```python\ndef f():\n    return 1\n```\n¿por qué falla?\n~~~\nx\n~~~"
+        self.assertEqual(normalize_query(q), "mira esto:\n¿por qué falla?")
+
+    def test_quita_lo_pegado_entre_marcas(self):
+        q = "<pasted_content id=1>\nlínea pegada\notra más\n</pasted_content>\nresume esto"
+        self.assertEqual(normalize_query(q), "resume esto")
+        q2 = "resume esto\n<pasted_content id=2 />"
+        self.assertEqual(normalize_query(q2), "resume esto")
+
+    def test_marca_sin_cierre_llega_hasta_el_final(self):
+        q = "resume esto\n<pasted_content id=3>\nmucho texto pegado\nque no se cierra"
+        self.assertEqual(normalize_query(q), "resume esto")
+
+    def test_quita_logs_y_trazas_de_otros_lenguajes(self):
+        q = ("el servicio se cae\n"
+             "2024-05-01 12:00:05 ERROR [pool-1] Timeout acquiring connection\n"
+             "TypeError: Cannot read properties of undefined (reading 'map')\n"
+             "    at renderList (webpack-internal:///./src/List.jsx:23:19)\n"
+             "at com.foo.Bar.baz(Bar.java:42)\n"
+             "$ npm test\n"
+             "npm ERR! code ELIFECYCLE\n"
+             "panic: runtime error: index out of range")
+        self.assertEqual(normalize_query(q), "el servicio se cae")
+
+    def test_quita_codigo_sin_cercas_y_lineas_de_diff(self):
+        q = ("quiero refactorizar esto\n"
+             "def apply_discount(order, pct):\n"
+             "    return order\n"
+             "x = foo(bar[1], {'a': 2});\n"
+             "--- a/auth.py\n+++ b/auth.py\n@@ -1 +1 @@\n-    old()\n+    new()\n"
+             "}")
+        self.assertEqual(normalize_query(q), "quiero refactorizar esto")
+
+    def test_conserva_la_peticion_con_codigo_en_linea_rutas_y_listas(self):
+        for q in ("revisa `foo()` en `bar.py` por favor",
+                  "revisa auth.py antes del merge",
+                  "Tareas:\n- revisa los tests\n  - y el linter\n1. despliega",
+                  "Error al compilar, ¿me ayudas?",
+                  "ERROR al compilar el proyecto",
+                  "C# y F# son lenguajes",
+                  "import my memory from chatgpt",
+                  "¡Hola!!! ayuda??? es urgente :("):
+            with self.subTest(q=q):
+                self.assertEqual(normalize_query(q), q)
+
+    def test_si_todo_era_pegado_devuelve_el_original(self):
+        for q in (PY_TRACEBACK, "```\nsolo codigo\n```", "<pasted_content>\nx y z\n"):
+            with self.subTest(q=q[:20]):
+                self.assertEqual(normalize_query(q), q)
+
+    def test_vacio_y_none(self):
+        self.assertEqual(normalize_query(""), "")
+        self.assertEqual(normalize_query(None), "")
+        self.assertEqual(normalize_query("   "), "   ")
+
+    def test_crlf(self):
+        q = "ayudame a depurar\r\nTraceback (most recent call last):\r\n  File \"a.py\", line 1\r\n"
+        self.assertEqual(normalize_query(q), "ayudame a depurar")
+
+    def test_mensajes_cortos_no_cambian(self):
+        for q, _expected in ScoreSkillsTest.OBVIOUS:
+            self.assertEqual(normalize_query(q), q)
+
+
 # --- Skill.build_terms / score_skills ---------------------------------------------------
 class ScoreSkillsTest(unittest.TestCase):
     OBVIOUS = [
@@ -350,6 +476,98 @@ class ScoreSkillsTest(unittest.TestCase):
     def test_lista_vacia_de_skills(self):
         self.assertEqual(score_skills([], "examen"), [])
 
+    # core-1: lo pegado no diluye el score
+    def test_traceback_pegado_no_diluye_el_score(self):
+        short = "tengo este error en produccion, ayudame a depurarlo por favor"
+        base = {r["name"]: r for r in score_skills(demo_skills(), short)}
+        with_tb = {r["name"]: r for r in score_skills(demo_skills(), short + "\n" + PY_TRACEBACK)}
+        self.assertEqual(with_tb["debug"]["score"], base["debug"]["score"])
+        rec, _ = classify(score_skills(demo_skills(), short + "\n" + PY_TRACEBACK), 3, 15)
+        self.assertEqual([r["name"] for r in rec], ["debug"])
+
+    def test_normalize_false_puntua_el_texto_tal_cual(self):
+        q = "tengo este error en produccion, ayudame a depurarlo\n" + PY_TRACEBACK
+        crudo = {r["name"]: r["score"] for r in score_skills(demo_skills(), q, normalize=False)}
+        limpio = {r["name"]: r["score"] for r in score_skills(demo_skills(), q)}
+        self.assertLess(crudo["debug"], limpio["debug"])
+
+    def test_frase_de_contexto_no_tumba_una_peticion_clara(self):
+        # El denominador se acota (QUERY_IDF_CAP_TERMS): una frase de más que no
+        # está en ninguna skill no deja la petición por debajo del umbral.
+        for q, expected in self.OBVIOUS:
+            with self.subTest(query=q):
+                rec, _ = classify(score_skills(demo_skills(), q + "." + CONTEXTO), 3, 15)
+                self.assertTrue(rec, "no recomendó nada")
+                self.assertEqual(rec[0]["name"], expected)
+
+    def test_con_el_tope_el_score_no_pasa_de_100(self):
+        # Un mensaje largo que coincide en más de QUERY_IDF_CAP_TERMS términos.
+        mk = next(s for s in demo_skills() if s.name == "marca-marketing")
+        q = mk.description + " y además otras cosas de contexto largo sin relación con nada"
+        res = score_skills(demo_skills(), q)
+        self.assertEqual((res[0]["name"], res[0]["score"]), ("marca-marketing", 100))
+        self.assertTrue(all(0 <= r["score"] <= 100 for r in res))
+
+    def test_el_tope_no_cambia_mensajes_cortos(self):
+        for q, _expected in self.OBVIOUS:
+            con = [(r["name"], r["score"]) for r in score_skills(demo_skills(), q)]
+            with mock.patch.object(skill_router, "QUERY_IDF_CAP_TERMS", None):
+                sin = [(r["name"], r["score"]) for r in score_skills(demo_skills(), q)]
+            self.assertEqual(con, sin, q)
+
+    # core-2: palabras sueltas de descripciones reales no dan dominio
+    def test_skill_con_una_sola_palabra_del_concepto_no_lo_recibe(self):
+        s = Skill("refund", "Use this to request a refund or email the store; run evals to test it.")
+        s.build_terms()
+        self.assertFalse([t for t in s.terms if t.startswith("concept:")], s.terms)
+        s2 = Skill("rev", "review the diff and find bugs")  # 3 términos de revision_codigo
+        s2.build_terms()
+        self.assertIn("concept:revision_codigo", s2.terms)
+
+    def test_descripciones_reales_en_ingles_no_capturan_un_pr(self):
+        # Extractos reales de SKILL.md: "request" les daba ~revision_codigo y
+        # "revisa este PR por seguridad" recomendaba las tres (17/100).
+        skills = [
+            Skill("computer-use", "Read this skill before the first step of any request to do "
+                                  "something in an app on the person's own computer."),
+            Skill("google-workspace", "Use this skill whenever the user wants to create or change a "
+                                      "Google Doc. Triggers include: a request that names Google Docs."),
+            Skill("morning", "Render the user's morning brief. A question about their day is not "
+                             "by itself a request for the brief."),
+            Skill("docx", "Create Word documents; if the user asks for a deliverable to download, "
+                          "email or print, use this skill."),
+            Skill("skill-creator", "Create new skills, modify and improve existing skills. Use when "
+                                   "users want to run evals to test a skill or benchmark skill "
+                                   "performance."),
+            Skill("pdf", "Use this skill whenever the user wants to do anything with PDF files."),
+            Skill("xlsx", "Use this skill any time a spreadsheet file is the primary input or output."),
+            Skill("pptx", "Use this skill any time a .pptx file is involved: slide decks, pitch decks."),
+            Skill("paint", "Paint an original image in a watercolor style by writing code."),
+            Skill("event-planning", "Help plan an event, from a birthday dinner to a wedding."),
+        ]
+        for q in ("revisa este PR por seguridad", "prepara una campaña de marketing",
+                  "ayudame a estudiar para el examen"):
+            with self.subTest(q=q):
+                rec, _ = classify(score_skills(skills, q), 3, 15)
+                self.assertEqual(rec, [])
+
+    def test_estudio_a_medida_no_es_de_investigacion(self):
+        # "estudio" es de dos conceptos; antes estudio-a-medida recibía
+        # ~investigacion (x4) y salía en búsquedas de mercado.
+        est = next(s for s in demo_skills() if s.name == "estudio-a-medida")
+        est.build_terms()
+        self.assertIn("concept:estudio", est.terms)
+        self.assertNotIn("concept:investigacion", est.terms)
+        rec, _ = classify(score_skills(demo_skills(), "investiga las tendencias del mercado de IA"), 3, 15)
+        self.assertEqual([r["name"] for r in rec], ["deep-research"])
+
+    def test_palabras_genericas_ya_no_activan_dominio(self):
+        for q in ("crea una clase Usuario en python", "la red de la oficina va lenta",
+                  "escribe un test para esta funcion", "dame la version final del documento"):
+            with self.subTest(q=q):
+                rec, _ = classify(score_skills(demo_skills(), q), 3, 15)
+                self.assertEqual(rec, [])
+
     def test_descripcion_none_no_aporta_el_token_none(self):
         s = Skill("x", None)
         s.build_terms()
@@ -402,6 +620,55 @@ class ClassifyTest(unittest.TestCase):
         rec, noise = classify(rows, top=1, threshold=15)
         self.assertEqual(len(rec), 1)
         self.assertEqual(noise, [])
+
+    def test_min_matched_por_defecto_no_mira_matched(self):
+        # Filas sin "matched" (o con uno solo) se comportan como siempre.
+        rec, noise = classify(self.res, top=10, threshold=15)
+        self.assertEqual(rec, classify(self.res, top=10, threshold=15, min_matched=1)[0])
+        self.assertEqual(self.names(rec), ["a", "b", "c"])
+
+    def test_min_matched_manda_al_ruido_las_coincidencias_sueltas(self):
+        rows = [
+            {"name": "dos", "score": 60, "matched": ["debug", "error"]},
+            {"name": "una", "score": 40, "matched": ["error"]},
+            {"name": "concepto", "score": 30, "matched": ["error", "concept:depuracion"]},
+            {"name": "baja", "score": 5, "matched": ["x", "y"]},
+        ]
+        rec, noise = classify(rows, top=3, threshold=15, min_matched=2)
+        self.assertEqual(self.names(rec), ["dos", "concepto"])  # el concepto cuenta
+        self.assertEqual(self.names(noise), ["una", "baja"])
+        rec1, _ = classify(rows, top=3, threshold=15)
+        self.assertEqual(self.names(rec1), ["dos", "una", "concepto"])
+
+    def test_min_matched_cuenta_distintas(self):
+        rows = [{"name": "rep", "score": 50, "matched": ["error", "error"]}]
+        self.assertEqual(classify(rows, 3, 15, min_matched=2)[0], [])
+
+    def test_min_matched_no_filtra_filas_del_llm(self):
+        rows = [{"name": "llm", "score": 80, "matched": ["porque el usuario pide depurar"]}]
+        rec, _ = classify(rows, 3, 15, min_matched=3)
+        self.assertEqual(self.names(rec), ["llm"])
+
+    def test_match_evidence(self):
+        self.assertEqual(match_evidence(["a1", "concept:x_y", "a1"]), 2)
+        self.assertEqual(match_evidence([]), 0)
+        self.assertEqual(match_evidence(None), 0)
+        self.assertIsNone(match_evidence(["Texto libre"]))
+
+    def test_min_matched_con_score_skills_real(self):
+        # 'help me debug this error' con descripciones reales: code-review y
+        # ux-copy solo coinciden en "error"; con min_matched=2 queda debug.
+        skills = [
+            Skill("debug", "Structured debugging session: reproduce, isolate, diagnose, and fix. "
+                           "Trigger with an error message or stack trace."),
+            Skill("code-review", "Review code changes for security, performance, and correctness, "
+                                 "or error handling gaps."),
+            Skill("ux-copy", "Write or review UX copy: microcopy, error messages, empty states."),
+        ]
+        res = score_skills(skills, "help me debug this error")
+        self.assertEqual(len(classify(res, 3, 15)[0]), 3)
+        rec, _ = classify(res, 3, 15, min_matched=2)
+        self.assertEqual(self.names(rec), ["debug"])
 
     def test_con_score_skills_mensaje_negativo(self):
         rec, noise = classify(score_skills(demo_skills(), "hola, como estas hoy"), 3, 15)

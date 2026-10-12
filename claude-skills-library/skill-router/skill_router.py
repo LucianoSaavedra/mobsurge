@@ -498,17 +498,21 @@ def demo_skills() -> list[Skill]:
 # cada palabra de contexto que no está en ninguna skill ("te lo pido porque es
 # para la oficina...") baja el score de todas y una petición clara con una frase
 # de más se queda sin recomendación. Un mensaje de hasta ~8 términos no cambia.
-# Medido con casos propios (no con bench/heldout.json): set inline +frase de
-# contexto 6/16 -> 10/16 aciertos, 62 skills reales 30/44 -> 32/44 (top-3 34 ->
-# 37) a cambio de 61 -> 65 recomendaciones falsas; el set inline no cambia.
-# K=5 acertaba más con contexto pero subía a 75 las falsas.
+# Medido con casos propios (no con bench/heldout.json): set inline + una frase
+# de contexto 6/16 -> 10/16 aciertos; 52 casos propios sobre 62 skills reales
+# 29/44 -> 31/44 top-1 (top-3 34 -> 37) a cambio de 63 -> 67 recomendaciones
+# falsas; el set inline sin la frase no cambia. K=5 acertaba más con contexto
+# pero subía a 75 las falsas.
 QUERY_IDF_CAP_TERMS: float | None = 8
+
+
 def score_skills(skills: list[Skill], query: str, use_concepts: bool = True,
                  normalize: bool = True) -> list[dict]:
     """Puntúa cada skill (0-100) contra el mensaje.
 
     score = 100 × IDF(términos del mensaje que la skill contiene) / IDF(todos los
-    términos del mensaje). Si el mensaje no deja ningún término útil tras
+    términos del mensaje), con el denominador acotado (QUERY_IDF_CAP_TERMS) y el
+    resultado a 100 como mucho. Si el mensaje no deja ningún término útil tras
     tokenizar (vacío, solo stopwords o signos), todas puntúan 0.
 
     normalize=True (por defecto) pasa antes el mensaje por normalize_query: el
@@ -539,7 +543,9 @@ def score_skills(skills: list[Skill], query: str, use_concepts: bool = True,
     results = []
     for s in skills:
         matched = [t for t in q_unique if t in s.terms]
-        score = round(100 * sum(idf(t) for t in matched) / total_idf) if total_idf else 0
+        # min(100, ...): con el tope, una skill que coincide en más de K términos
+        # superaría el 100.
+        score = min(100, round(100 * sum(idf(t) for t in matched) / total_idf)) if total_idf else 0
         results.append({
             "name": s.name,
             "scenario": s.scenario,
@@ -610,9 +616,10 @@ def match_evidence(matched: list) -> int | None:
     cuente aunque venga de la misma palabra es deliberado: una skill solo
     tiene concept:x si su texto trae 2 o más términos de x
     (SKILL_CONCEPT_MIN_TERMS), así que palabra + concepto ya dice "esta skill es
-    de ese dominio". Medido con 62 skills reales y casos propios, no contar el
-    concepto cuando una palabra coincidente ya pertenece a él perdía 5 de 28
-    aciertos por quitar solo 2 de 24 recomendaciones falsas.
+    de ese dominio". Medido con min_matched=2 en casos propios (62 skills
+    reales y demo), no contar el concepto cuando una palabra coincidente ya
+    pertenece a él bajaba de 30 a 23 los aciertos top-1 (de 44) y de 10 a 8 los
+    del set inline, por quitar solo 4 de 20 recomendaciones falsas.
 
     Devuelve None si `matched` no son tokens léxicos (p.ej. el motivo en texto
     libre del scorer LLM): ahí no hay coincidencias que contar.
@@ -632,7 +639,7 @@ def classify(results: list[dict], top: int, threshold: int,
     recomendadas ni ruido (son relevantes, solo que hay mejores).
 
     min_matched: además del umbral, exige al menos esas coincidencias
-    independientes en "matched" (ver match_evidence). Una skill que supera el
+    distintas en "matched" (ver match_evidence). Una skill que supera el
     umbral con menos pasa a ruido. Con 1 (por defecto) no se mira "matched" y
     el comportamiento es el de siempre. Las filas del scorer LLM (su "matched"
     es un motivo en texto, no tokens) no se filtran por esto: el LLM ya decidió.

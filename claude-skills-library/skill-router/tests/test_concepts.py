@@ -51,6 +51,33 @@ class ExpandTokensTest(unittest.TestCase):
             with self.subTest(term=term):
                 self.assertIn(f"concept:{concept}", expand_tokens([term]))
 
+    def test_min_terms_exige_terminos_distintos(self):
+        # Para etiquetar skills se usa min_terms=2: una palabra suelta no basta.
+        self.assertEqual(expand_tokens(["examen"], min_terms=2), ["examen"])
+        self.assertEqual(expand_tokens(["examen", "examen"], min_terms=2), ["examen", "examen"])
+        self.assertEqual(expand_tokens(["examen", "repaso"], min_terms=2),
+                         ["examen", "repaso", "concept:estudio", "concept:estudio"])
+
+    def test_min_terms_resuelve_el_doble_concepto_de_estudio(self):
+        # "estudio" + "examen": 2 términos de ~estudio, pero solo 1 de ~investigacion.
+        out = expand_tokens(["estudio", "examen"], min_terms=2)
+        self.assertNotIn("concept:investigacion", out)
+        self.assertEqual(out.count("concept:estudio"), 2)
+        out = expand_tokens(["estudio", "mercado"], min_terms=2)
+        self.assertEqual(out[2:], ["concept:investigacion", "concept:investigacion"])
+
+    def test_min_terms_1_es_el_comportamiento_de_siempre(self):
+        for toks in (["examen"], ["estudio"], ["reel", "tiktok", "zzz"], []):
+            self.assertEqual(expand_tokens(toks, min_terms=1), expand_tokens(toks))
+
+    def test_palabras_genericas_no_activan_conceptos(self):
+        # core-2: en un asistente de código y en las descripciones reales en
+        # inglés casi nunca significan el concepto ("run evals to test a skill",
+        # "request a refund", "email or print", "red" = rojo, "clase" de Python).
+        for t in ("test", "clase", "red", "stack", "pull", "request", "copy", "email", "final"):
+            with self.subTest(term=t):
+                self.assertEqual(concepts_for(t), [])
+
     def test_tras_tokenizar_un_mensaje_real(self):
         out = expand_tokens(tokenize("Revísame el PR, por favor"))
         self.assertIn("pr", out)

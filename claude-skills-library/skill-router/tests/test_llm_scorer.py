@@ -16,6 +16,7 @@ import math
 import os
 import subprocess
 import sys
+import tempfile
 import types
 import unittest
 from pathlib import Path
@@ -35,6 +36,23 @@ from skill_router import Skill, classify, demo_skills
 # Referencias a las funciones reales antes de que ningún test las parchee.
 REAL_CALL_SDK = llm_scorer._call_sdk
 REAL_CALL_CLI = llm_scorer._call_cli
+
+_MODULE_ENV = []
+
+
+def setUpModule():
+    # _call_cli crea su carpeta de trabajo neutra en $XDG_CACHE_HOME: que sea una
+    # temporal y no la del usuario que corre los tests.
+    tmp = tempfile.TemporaryDirectory(prefix="skill-router-xdg-")
+    env = mock.patch.dict(os.environ, {"XDG_CACHE_HOME": tmp.name})
+    env.start()
+    _MODULE_ENV.extend([env, tmp])
+
+
+def tearDownModule():
+    env, tmp = _MODULE_ENV
+    env.stop()
+    tmp.cleanup()
 
 
 def resp(*items, **extra) -> str:
@@ -615,7 +633,15 @@ class CliIsolationTest(unittest.TestCase):
         self.assertEqual(kw["env"]["SKILL_ROUTER_CHILD"], "1")
         self.assertEqual(kw["env"]["SKILL_ROUTER_HOOK_ACTIVE"], "1")
         self.assertNotEqual(kw["cwd"], os.getcwd())
-        self.assertEqual(Path(kw["cwd"]).name, "skill-router-llm")
+        self.assertEqual(Path(kw["cwd"]),
+                         Path(os.environ["XDG_CACHE_HOME"]) / "skill-router" / "llm-cwd")
+        self.assertTrue(Path(kw["cwd"]).is_dir())
+
+    def test_cwd_neutro_no_disponible_hereda_el_actual(self):
+        blocker = Path(os.environ["XDG_CACHE_HOME"]) / "soy-un-archivo"
+        blocker.write_text("x", encoding="utf-8")
+        _, _, kw = self.run_cli(XDG_CACHE_HOME=str(blocker))
+        self.assertIsNone(kw["cwd"])
 
     def test_no_modifica_el_entorno_del_padre(self):
         with mock.patch.dict(os.environ):
@@ -706,43 +732,56 @@ class CliRealSubprocessTest(TempDirTestCase):
         script = bindir / "claude"
         script.write_text(
             f"#!{sys.executable}\n"
-            "import json, os, sys\n"
-            "data = sys.stdin.buffer.read()\n"
+            "import json, os, select, sys\n"
+            "ready = select.select([sys.stdin], [], [], 3)[0]  # sin stdin: no se cuelga\n"
+            "data = sys.stdin.buffer.read() if ready else b''\n"
             f"with open({str(log)!r}, 'w', encoding='utf-8') as f:\n"
             "    json.dump({'argv': sys.argv[1:], 'stdin': data.decode('utf-8', 'replace'),\n"
             "               'child': os.environ.get('SKILL_ROUTER_CHILD'), 'cwd': os.getcwd()}, f)\n"
             f"sys.stdout.buffer.write({stdout_bytes!r})\n", encoding="utf-8")
         script.chmod(0o755)
-        env = mock.patch.dict(os.environ, {"PATH": f"{bindir}{os.pathsep}{os.environ.get('PATH', '')}"})
+        env = mock.patch.dict(os.environ, {"PATH": f"{bindir}{os.pathsep}{os.environ.get('PATH', '')}",
+                                           "SKILL_ROUTER_LLM_TIMEOUT": "20"})
         env.start()
         self.addCleanup(env.stop)
         os.environ.pop(CACHE_ENV, None)
         return log
 
     def test_salida_utf8_con_locale_cp1252(self):
+        """core-3: con text=True se decodificaba con el locale (cp1252 en Windows)."""
         reason = "Útil: aísla el fallo (ÍNDICE)"  # 'Í' (0x8D) no existe en cp1252
-        log = self.fake_claude(cli_envelope(resp({"name": "debug", "score": 90, "reason": reason}))
-                               .encode("utf-8"))
+        log = self.fake_claude(resp({"name": "debug", "score": 90, "reason": reason}).encode("utf-8"))
         # Simula Windows sin modo UTF-8: text=True decodificaría con cp1252.
         with mock.patch.object(subprocess, "_text_encoding", create=True, return_value="cp1252"):
-            usage = {}
-            rows = llm_score(demo_skills(), "falla al guardar", backend="cli", usage=usage)
+            rows = llm_score(demo_skills(), "falla al guardar", backend="cli")
         self.assertEqual(rows[0]["matched"], [reason])
         self.assertEqual(json.loads(log.read_text(encoding="utf-8"))["child"], "1")
-        self.assertEqual(usage["input_tokens"], 2 + 2925 + 2830)
 
-    def test_nul_en_descripcion_y_catalogo_enorme(self):
-        log = self.fake_claude(resp({"name": "rara", "score": 80}).encode("utf-8"))
-        skills = [Skill("rara", "desc con \x00 nul")]
-        skills += [Skill(f"s{i}", "x" * 1024) for i in range(400)]  # > 128 KiB en argv
-        with mock.patch.dict(os.environ, {llm_scorer.DESC_MAX_ENV: "1024"}):
-            rows = llm_score(skills, "consulta", backend="cli")
-            prompt = build_prompt("consulta", skills)
-        self.assertGreater(len(prompt.encode("utf-8")), 131072)
+    def test_nul_en_una_descripcion(self):
+        """core-3: un NUL en argv daba ValueError (embedded null byte) sin capturar."""
+        self.fake_claude(resp({"name": "rara", "score": 80}).encode("utf-8"))
+        rows = llm_score([Skill("rara", "desc con \x00 nul"), Skill("otra", "x")], "q", backend="cli")
         self.assertEqual((rows[0]["name"], rows[0]["score"]), ("rara", 80))
+
+    def test_catalogo_enorme_va_por_stdin(self):
+        """core-5 / int-6: un argumento de más de 128 KiB daba E2BIG."""
+        log = self.fake_claude(resp({"name": "s7", "score": 70}).encode("utf-8"))
+        skills = [Skill(f"s{i}", f"skill {i} " + "y" * 1024) for i in range(500)]
+        rows = llm_score(skills, "consulta secreta", backend="cli")
+        self.assertEqual((rows[0]["name"], rows[0]["score"]), ("s7", 70))
+        prompt = build_prompt("consulta secreta", skills)
+        self.assertGreater(len(prompt.encode("utf-8")), 131072)
         logged = json.loads(log.read_text(encoding="utf-8"))
         self.assertEqual(logged["stdin"], prompt)
-        self.assertNotIn("consulta", " ".join(logged["argv"]))
+        self.assertNotIn("consulta secreta", " ".join(logged["argv"]))  # tampoco visible en `ps`
+
+    def test_uso_real_de_punta_a_punta(self):
+        self.fake_claude(cli_envelope(resp({"name": "debug", "score": 90})).encode("utf-8"))
+        usage = {}
+        rows = llm_score(demo_skills(), "falla al guardar", backend="cli", usage=usage)
+        self.assertEqual((rows[0]["name"], rows[0]["score"]), ("debug", 90))
+        self.assertEqual((usage["input_tokens"], usage["output_tokens"], usage["cost_usd"]),
+                         (2 + 2925 + 2830, 59 + 25, 0.0248835))
 
 
 class CliOutputParsingTest(unittest.TestCase):

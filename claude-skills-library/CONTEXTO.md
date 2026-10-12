@@ -104,3 +104,23 @@ Lo que alcanzó a hacerse quedó commiteado como WIP, **sin revisión adversaria
 3. Correr el benchmark independiente con los 3 scorers:
    `python3 eval.py --compare --llm --cases bench/heldout.json`.
 4. Revisión adversarial del diff, meter los números reales en PITCH.md, commit.
+
+## ⏸️ Pausa 2 (workflows detenidos a mitad, SIN VERIFICAR)
+
+Medido antes de la pausa (benchmark independiente `bench/heldout.json`, 60 casos, top-1):
+léxico 35% · +conceptos 40% · LLM Opus 5.5 100%. Resultado completo: `.work/heldout_llm_opus.json`.
+
+Se detuvieron dos workflows a mitad; sus cambios parciales están commiteados como WIP:
+1. **Arreglos + ahorro de tokens** (`.work/workflow-fixes.js`): aplica los 27 hallazgos
+   confirmados de la revisión adversarial (`.work/review_findings.json`) y añade cascada
+   (`cascade.py`), medición real de tokens, `--model` (Haiku) y métricas nuevas.
+2. **Autopilot + plugin** (`.work/workflow-autopilot.js`): plugin de Claude Code que se
+   instala una vez; por proyecto detecta el tipo, instala skills curadas sin scripts,
+   deduplica, informa del ahorro de tokens y enruta cada mensaje.
+
+Criterio de aceptación acordado: una config barata (cascada/Haiku) solo es la opción por
+defecto si consigue top-1 ≥ 97% y negativos ≥ 90% en el held-out, con ahorro medido.
+
+**Al retomar:** revisar qué dejó cada workflow (`git diff` desde `fd9b963`), relanzar
+los dos workflows desde `.work/` (los agentes deben partir del estado actual), pasar las
+suites, medir Opus vs Haiku vs cascada en el held-out y escribir `GUIA-DE-USO.md`.

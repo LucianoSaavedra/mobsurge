@@ -307,11 +307,17 @@ def _cli_argv(model: str, effort: str | None) -> list[str]:
 def _neutral_cwd() -> str | None:
     """Carpeta vacía y estable para el hijo: sin CLAUDE.md, .mcp.json ni git del
     proyecto. Estable (no una nueva cada vez) para no llenar la config de Claude
-    Code con proyectos temporales."""
-    d = Path(tempfile.gettempdir()) / "skill-router-llm"
+    Code con proyectos temporales, y del usuario (no en /tmp, donde otro usuario
+    podría crearla antes con su propio contenido). Si no se puede, None (el hijo
+    hereda el directorio actual)."""
+    base = os.environ.get("XDG_CACHE_HOME", "").strip()
     try:
-        d.mkdir(exist_ok=True)
-    except OSError:
+        root = Path(base) if base else Path.home() / ".cache"
+        d = root / "skill-router" / "llm-cwd"
+        d.mkdir(parents=True, exist_ok=True)
+        if d.is_symlink() or not d.is_dir():
+            return None
+    except (OSError, RuntimeError):  # RuntimeError: Path.home() sin HOME
         return None
     return str(d)
 
@@ -342,7 +348,7 @@ def _parse_cli_output(stdout: str) -> _Reply:
                     if isinstance(x, dict) and x.get("type") == "result"), None)
     if not (isinstance(env, dict) and env.get("type") == "result"):
         return _Reply(stdout or "")
-    if env.get("is_error") or env.get("subtype", "success") != "success":
+    if env.get("is_error") or env.get("subtype") not in (None, "success"):
         detail = _one_line(env.get("result") or "", 200)
         raise LLMUnavailable(f"claude CLI devolvió un error ({env.get('subtype')}): {detail}")
     text = env.get("result")
