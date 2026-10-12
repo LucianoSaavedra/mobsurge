@@ -1,0 +1,15 @@
+name: MobBrain
+version: 1.0.0
+main: com.luciano.mobbrain.MobBrain
+api-version: "26.1"
+author: Luciano
+description: Una IA (árbol de decisión) que aprende cómo juega cada jugador y le adapta los mobs.
+commands:
+  ia:
+    description: Ver qué piensa la IA de vos y el árbol que aprendió
+    usage: /ia [nivel|arbol|stats|entrenar|reset]
+    aliases: [mobbrain]
+permissions:
+  mobbrain.admin:
+    description: Entrenar a mano o borrar lo aprendido
+    default: op

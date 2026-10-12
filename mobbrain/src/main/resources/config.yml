@@ -1,0 +1,96 @@
+# ============================================================
+#  MobBrain - una IA que aprende cómo juega cada uno
+#  y le ajusta los mobs (árbol de decisión, aprende solo)
+# ============================================================
+
+# Cada cuántos segundos la IA le saca una "foto" a cada jugador
+# (vida, armadura, arma, mobs cerca, luz, etc.)
+segundos-entre-fotos: 15
+
+# Si el jugador muere dentro de estos segundos después de una foto,
+# esa foto cuenta como "peligro". Si no, cuenta como "sobrevivió".
+ventana-segundos: 180
+
+# Cada cuántos minutos se vuelve a entrenar el árbol con los datos nuevos
+minutos-entre-entrenamientos: 5
+
+# Profundidad máxima del árbol: cuántas preguntas seguidas puede hacer.
+# Más profundo = más detallista, pero puede memorizar en vez de aprender.
+profundidad-maxima: 4
+
+# Datos mínimos para dejar las reglas fijas y empezar a usar el árbol.
+# Cada muerte de verdad deja unas 12 fotos de peligro.
+minimo-fotos: 150
+minimo-fotos-de-peligro: 20
+
+# Máximo de fotos guardadas (cuando se pasa, se borran las más viejas)
+maximo-fotos: 20000
+
+# Avisar en la barra de acción cuando a alguien le cambia el nivel
+avisar-cambios: true
+
+# Mensaje corto al entrar al server
+mensaje-bienvenida: true
+
+# Si un jugador ya tiene esta cantidad de mobs hostiles cerca,
+# no se le suman mobs extra ni hordas (para que no explote el server)
+tope-mobs-cerca: 24
+
+# Riesgo = qué tan probable es que muera pronto (0.5 = jugador promedio).
+# Menos riesgo = la IA te ve cómodo = te sube el nivel.
+cortes:
+  nivel-5: 0.20   # riesgo menor a esto -> nivel 5
+  nivel-4: 0.38   # menor a esto -> nivel 4
+  nivel-3: 0.62   # menor a esto -> nivel 3
+  nivel-2: 0.80   # menor a esto -> nivel 2 (si no, nivel 1)
+
+# Qué hace cada nivel:
+#   mobs-extra: 0.33 = 33% de chance de un mob extra en cada spawn natural
+#               1.0  = siempre uno extra; negativo = chance de cancelar el spawn
+#   vida, dano, velocidad: multiplicadores de los mobs (1.0 = normal)
+# El nivel 3 es igual a lo que hacía MobSurge (+33% mobs, x1.5 de daño).
+niveles:
+  '1':
+    nombre: Respiro
+    color: '&a'
+    mobs-extra: -0.30
+    vida: 1.0
+    dano: 1.0
+    velocidad: 1.0
+  '2':
+    nombre: Suave
+    color: '&2'
+    mobs-extra: 0.10
+    vida: 1.0
+    dano: 1.25
+    velocidad: 1.0
+  '3':
+    nombre: Normal
+    color: '&e'
+    mobs-extra: 0.33
+    vida: 1.0
+    dano: 1.5
+    velocidad: 1.0
+  '4':
+    nombre: Difícil
+    color: '&6'
+    mobs-extra: 0.66
+    vida: 1.25
+    dano: 1.75
+    velocidad: 1.08
+  '5':
+    nombre: Pesadilla
+    color: '&c'
+    mobs-extra: 1.0
+    vida: 1.5
+    dano: 2.0
+    velocidad: 1.15
+
+# Hordas: de noche, al que esté en nivel alto y a cielo abierto
+# le cae un grupo de zombies, esqueletos y arañas que van directo a él.
+hordas:
+  activadas: true
+  nivel-minimo: 5
+  cada-segundos: 150
+  minimo: 3
+  maximo: 5
