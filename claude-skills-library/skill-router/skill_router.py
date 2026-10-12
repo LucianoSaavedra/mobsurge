@@ -37,6 +37,10 @@ from pathlib import Path
 from concepts import expand_tokens
 
 # --- Stopwords ES/EN basicas (no exhaustivo, suficiente para el baseline) ----
+# Incluye palabras funcionales y verbos de petición ("help", "make", "ayudame",
+# "tengo"): no dicen de qué va el mensaje y, como casi ninguna skill las
+# contiene, inflaban el denominador del score. Con las descripciones reales en
+# inglés, además, "what"/"how"/"before" daban coincidencias espurias de 22/100.
 STOPWORDS = set("""
 a al algo ante antes como con contra de del desde donde durante e el ella ellas
 ello ellos en entre era eran es esa ese eso esta este esto hacer hasta la las le
@@ -45,6 +49,15 @@ si sin sobre su sus te tu tus un una uno unos y ya
 and are as at be but by for from has have in into is it its of on or that the this
 to was were will with your you my me i we our
 quiero necesito ayuda hazme dame crea crear
+what whats how why who whom which when where does doing did done not dont cant
+can could would should shall may might must any all some more most other such
+only also than then there their they them these those about after before over
+under again here just very each both few own same too out off because while
+until being been having his her him she yours please thanks thank hello hey
+lets let get got help make want need give like
+hay son fue estoy estas estan tengo tiene tienes puedes puede hola favor gracias
+cual cuales cuando quien todo toda todos todas otro otra otros otras cada aqui
+asi tambien solo estos esos esas aunque bien ayudame porfa
 """.split())
 
 # Tokens de 2 letras que sí informan (siglas técnicas). El resto de tokens de
@@ -116,7 +129,7 @@ _LOG_LINE = re.compile(r"""^\s*(?:
     | \[?\d{2}:\d{2}:\d{2}
     | \[?(?:TRACE|DEBUG|INFO|NOTICE|WARN|WARNING|ERROR|ERR|FATAL|CRITICAL|SEVERE)\]?(?:\s|:|$)
     | npm\ (?:ERR!|WARN)
-    | (?:panic|fatal):\
+    | (?:panic|fatal):[ ]\S
     | (?:error|warning)\[\w+\]:
     | E\ {2,}\S                                   # pytest
     | (?:\$|>>>|\.\.\.)\ \S                       # prompt de shell / REPL
@@ -408,7 +421,15 @@ def demo_skills() -> list[Skill]:
 
 
 # --- Scoring (baseline IDF) --------------------------------------------------
-QUERY_IDF_CAP_TERMS: float | None = None
+# Tope del denominador: como mucho el IDF de 8 términos desconocidos. Sin él,
+# cada palabra de contexto que no está en ninguna skill ("te lo pido porque es
+# para la oficina...") baja el score de todas y una petición clara con una frase
+# de más se queda sin recomendación. Un mensaje de hasta ~8 términos no cambia.
+# Medido con casos propios (no con bench/heldout.json): set inline +frase de
+# contexto 6/16 -> 10/16 aciertos, 62 skills reales 30/44 -> 32/44 (top-3 34 ->
+# 37) a cambio de 61 -> 65 recomendaciones falsas; el set inline no cambia.
+# K=5 acertaba más con contexto pero subía a 75 las falsas.
+QUERY_IDF_CAP_TERMS: float | None = 8
 def score_skills(skills: list[Skill], query: str, use_concepts: bool = True,
                  normalize: bool = True) -> list[dict]:
     """Puntúa cada skill (0-100) contra el mensaje.

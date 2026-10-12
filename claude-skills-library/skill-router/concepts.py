@@ -11,6 +11,14 @@ Todos los términos van sin acentos y en minúscula (igual que el tokenizador).
 
 Los verbos aparecen en infinitivo y también en imperativo ("revisa", "investiga",
 "depura"...), porque así es como se le suelen pedir las cosas a un asistente.
+
+Fuera a propósito: palabras que en un asistente de código casi nunca significan
+el concepto ("test" = test de software, "clase" = clase de Python, "red" = el
+color en inglés o una red de ordenadores, "stack" = stack tecnológico, "pull",
+"request", "copy", "email", "final"). Daban dominio falso al mensaje y, en las
+descripciones reales en inglés ("request a refund", "email or print", "run evals
+to test a skill"), a skills que no tienen nada que ver. Si una skill las trae
+literalmente, siguen coincidiendo como palabra.
 """
 
 from __future__ import annotations
@@ -18,11 +26,11 @@ from __future__ import annotations
 # concepto canónico -> términos de superficie que lo activan
 CONCEPTS: dict[str, list[str]] = {
     "estudio": [
-        "estudiar", "estudia", "estudio", "examen", "prueba", "parcial", "final",
+        "estudiar", "estudia", "estudio", "examen", "prueba", "parcial",
         "repasar", "repasa", "repaso", "apuntes", "materia", "tarea", "deberes",
         "nota", "notas", "calificacion", "calificaciones", "flashcards", "fichas",
         "resumen", "resumenes", "simulacro", "rubrica", "aprender", "aprende",
-        "temario", "test", "quiz", "universidad", "clase",
+        "temario", "quiz", "universidad",
     ],
     "video": [
         "video", "videos", "reel", "reels", "short", "shorts", "tiktok", "guion",
@@ -30,25 +38,25 @@ CONCEPTS: dict[str, list[str]] = {
         "edicion", "grabar", "graba", "montaje", "youtube", "vertical",
     ],
     "marketing": [
-        "marketing", "copy", "copywriting", "publicidad", "anuncio", "anuncios",
+        "marketing", "copywriting", "publicidad", "anuncio", "anuncios",
         "campana", "campanas", "seo", "conversion", "embudo", "growth",
-        "posicionamiento", "branding", "marca", "email", "newsletter", "landing",
+        "posicionamiento", "branding", "marca", "newsletter", "landing",
         "ventas", "cliente", "clientes",
     ],
     "redes": [
-        "redes", "red", "social", "instagram", "facebook", "twitter", "linkedin",
+        "redes", "social", "instagram", "facebook", "twitter", "linkedin",
         "publicacion", "publicaciones", "post", "posts", "seguidores",
         "engagement", "comunidad", "contenido",
     ],
     "revision_codigo": [
-        "revisar", "revisa", "revisame", "revision", "review", "pull", "request",
+        "revisar", "revisa", "revisame", "revision", "review",
         "pr", "prs", "diff", "bug", "bugs", "seguridad", "vulnerabilidad",
         "inyeccion", "rendimiento", "refactor", "calidad", "lint", "merge",
         "commit",
     ],
     "depuracion": [
         "debug", "depurar", "depura", "diagnosticar", "diagnostica", "reproducir",
-        "reproduce", "stack", "trace", "traceback", "fallo", "crash", "excepcion",
+        "reproduce", "trace", "traceback", "fallo", "crash", "excepcion",
         "error", "errores", "roto",
     ],
     "investigacion": [
