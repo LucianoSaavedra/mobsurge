@@ -18,6 +18,8 @@ Uso:
     python3 skill_router.py --catalog ../skills.json "guion para un reel"
     python3 skill_router.py --json "..."     # salida JSON
     python3 skill_router.py --demo           # usa skills de ejemplo
+    python3 skill_router.py --cascade "..."  # léxico; Claude solo si hace falta
+    python3 skill_router.py --llm --model claude-haiku-4-5 "..."
 
 Sin --skills-dir ni --catalog intenta ~/.claude/skills; si no tiene skills, usa el
 skills.json vecino; si tampoco, cae a un set de demo.
@@ -26,6 +28,7 @@ skills.json vecino; si tampoco, cae a un set de demo.
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
 import math
 import re
@@ -127,12 +130,25 @@ _LOG_LINE = re.compile(r"""^\s*(?:
     | (?:Uncaught\ |Caused\ by:\ )?[A-Za-z_][\w.]*?(?:Error|Exception|Warning)(?:\ \[\w+\])?:
     | \d{4}-\d{2}-\d{2}[T\ ]\d{2}:\d{2}           # timestamp de log
     | \[?\d{2}:\d{2}:\d{2}
-    | \[?(?:TRACE|DEBUG|INFO|NOTICE|WARN|WARNING|ERROR|ERR|FATAL|CRITICAL|SEVERE)\]?(?:\s|:|$)
+    | \[?(?:TRACE|DEBUG|INFO|NOTICE|WARN|WARNING|ERROR|ERR|FATAL|CRITICAL|SEVERE)\]?(?::|\]|\s{2,}|\s[\[A-Z0-9(]|$)
     | npm\ (?:ERR!|WARN)
     | (?:panic|fatal):[ ]\S
     | (?:error|warning)\[\w+\]:
     | E\ {2,}\S                                   # pytest
     | (?:\$|>>>|\.\.\.)\ \S                       # prompt de shell / REPL
+)""", re.X)
+# Primera línea de un bloque de código pegado sin sangría ni ``` (las
+# siguientes ya van sangradas): solo formas que no se dan en una frase.
+_CODE_LINE = re.compile(r"""^\s*(?:
+      (?:async[ ])?def[ ]\w+\s*\(
+    | class[ ]\w+\s*[(:{]
+    | function\*?\s*[\w$]*\s*\(
+    | (?:const|let|var)[ ][\w$]+\s*=
+    | from[ ][\w.]+[ ]import[ ]
+    | import[ ][\w.]+(?:[ ]as[ ]\w+)?\s*;?\s*$
+    | (?:public|private|protected)[ ](?:static[ ])?[\w<>\[\]]+[ ]\w+\s*\(
+    | \#include[ ]
+    | [}\])]+[;,]?\s*$
 )""", re.X)
 _INLINE_CODE = re.compile(r"`[^`\n]+`")
 _CODE_SYMBOLS = frozenset("{}[]()<>=;:/\\|&*+^%$#@~`\"'_")
@@ -165,6 +181,8 @@ def normalize_query(text: str) -> str:
     - líneas de traceback o log ("Traceback (most recent call last)",
       'File "x.py", line 3', "at foo (app.js:1:2)", "ValueError: ...",
       timestamps, niveles INFO/ERROR..., prompts "$ " o ">>> "),
+    - la primera línea de un bloque de código pegado sin ``` ("def f(x):",
+      "const a = ...", "import os", "}"),
     - líneas con sangría de código (2+ espacios o tabulador; las viñetas de
       una lista con texto se conservan) y líneas de diff,
     - líneas dominadas por símbolos de código.
@@ -192,7 +210,8 @@ def normalize_query(text: str) -> str:
             continue
         if _INDENTED.match(line) and not (_LIST_ITEM.match(line) and not _symbol_heavy(line)):
             continue
-        if _DIFF_LINE.match(line) or _LOG_LINE.match(line) or _symbol_heavy(line):
+        if (_DIFF_LINE.match(line) or _LOG_LINE.match(line) or _CODE_LINE.match(line)
+                or _symbol_heavy(line)):
             continue
         kept.append(line)
     out = "\n".join(kept).strip()
@@ -206,18 +225,39 @@ _DESC_FALLBACK_MAX = 1024  # mismo límite que Claude Code para `description`
 
 
 def _unquote(v: str) -> str:
-    """Quita comillas YAML que envuelven todo el valor (sin tocar las internas)."""
-    if len(v) >= 2 and v[0] == v[-1] and v[0] in "'\"":
-        if v[0] == "'":
-            return v[1:-1].replace("''", "'")
-        try:
-            out = json.loads(v)  # YAML con comillas dobles ~ string JSON
-            if isinstance(out, str):
-                return out
-        except ValueError:
-            pass
-        return v[1:-1].replace('\\"', '"')
-    # escalar plano: en YAML, " #" inicia un comentario
+    """Valor YAML de una línea: quita las comillas que lo envuelven y el comentario.
+
+    - Entre comillas ('...' o "..."): se busca la comilla de cierre ('' es una
+      comilla simple escapada; en dobles, \" y los demás escapes JSON). Si
+      después solo hay espacios o un "# comentario", el valor es lo de dentro:
+      `name: "omicron" # nombre` vale omicron. Si después hay otra cosa, no es
+      un escalar entre comillas y se trata como plano.
+    - Escalar plano: " #" inicia un comentario.
+    """
+    if v[:1] in ("'", '"'):
+        q, i = v[0], 1
+        while i < len(v):
+            c = v[i]
+            if q == '"' and c == "\\":
+                i += 2
+                continue
+            if c == q:
+                if q == "'" and v[i + 1:i + 2] == "'":
+                    i += 2
+                    continue
+                break
+            i += 1
+        if i < len(v) and re.fullmatch(r"\s*(?:#.*)?", v[i + 1:]):
+            inner = v[1:i]
+            if q == "'":
+                return inner.replace("''", "'")
+            try:
+                out = json.loads(v[:i + 1])  # YAML con comillas dobles ~ string JSON
+                if isinstance(out, str):
+                    return out
+            except ValueError:
+                pass
+            return inner.replace('\\"', '"')
     return re.sub(r"\s+#.*$", "", v)
 
 
@@ -225,19 +265,50 @@ def _first_paragraph(lines: list[str]) -> str:
     """Primer párrafo de texto del cuerpo (sin títulos, código ni comentarios).
 
     Es lo que Claude Code usa como descripción cuando el frontmatter no la trae.
+    Los comentarios HTML (<!-- ... -->, también de varias líneas o en mitad de
+    una línea) no se renderizan en Markdown, así que no cuentan; uno sin cerrar
+    oculta el resto del archivo.
     """
     para: list[str] = []
     in_code = False
+    in_comment = False
     for line in lines:
-        s = line.strip()
-        if s.startswith(("```", "~~~")):
-            if para:
+        starts_comment = False
+        if not in_comment:
+            s = line.strip()
+            if s.startswith(("```", "~~~")):
+                if para:
+                    break
+                in_code = not in_code
+                continue
+            if in_code:
+                continue
+            starts_comment = s.startswith("<!--")
+        # quita los comentarios HTML de la línea (y los que siguen abiertos)
+        out, rest = "", line
+        while rest:
+            if in_comment:
+                end = rest.find("-->")
+                if end == -1:
+                    rest = ""
+                    break
+                rest, in_comment = rest[end + 3:], False
+            else:
+                start = rest.find("<!--")
+                if start == -1:
+                    out += rest
+                    break
+                out += rest[:start] + " "
+                rest, in_comment = rest[start + 4:], True
+        had_comment = out != line
+        s = " ".join(out.split())
+        if starts_comment and para:
+            break  # un comentario al principio de línea abre un bloque HTML: corta el párrafo
+        if not s:
+            if para and not had_comment:
                 break
-            in_code = not in_code
             continue
-        if in_code:
-            continue
-        if not s or s.startswith(("#", "<!--")) or s in ("---", "***", "___"):
+        if s.startswith("#") or s in ("---", "***", "___"):
             if para:
                 break
             continue
@@ -265,8 +336,10 @@ def parse_frontmatter(skill_md: Path) -> tuple[str, str]:
     dir_name = skill_md.parent.name
     name, desc = "", ""
 
-    if lines and lines[0].strip() == "---":
-        end = next((j for j in range(1, len(lines)) if lines[j].strip() in ("---", "...")), None)
+    if lines and lines[0].rstrip() == "---":
+        # Solo cierra un "---" o "..." en la columna 0: uno sangrado es texto de
+        # un bloque | o > ("  ---" dentro de la descripción no la corta).
+        end = next((j for j in range(1, len(lines)) if lines[j].rstrip() in ("---", "...")), None)
         fm_lines = lines[1:end] if end is not None else lines[1:]
         body = lines[end + 1:] if end is not None else []
         i = 0
@@ -595,6 +668,88 @@ def _default_skills() -> tuple[list[Skill], str]:
     return demo_skills(), "demo"
 
 
+def _fmt_num(v) -> str:
+    return "n/d" if v is None else str(v)
+
+
+def _usage_line(usage: dict | None, used_llm: bool) -> str | None:
+    """Una línea legible con lo que costó la llamada al LLM (contrato `usage`).
+
+    Los campos que el backend no informa (None) salen como "n/d": nunca se
+    inventan. Si la respuesta vino de SKILL_ROUTER_CACHE, no se gastó cuota.
+    """
+    if not isinstance(usage, dict):
+        return None
+    lat = usage.get("latency_s")
+    lat_txt = f"{lat:.2f} s" if isinstance(lat, (int, float)) else "n/d"
+    if not used_llm:
+        decision = usage.get("decision")
+        if decision == "llm_error":
+            return f"   cascada: el LLM falló, se usó el léxico  ·  {lat_txt}"
+        why = "nada aplica" if decision == "none" else "el léxico bastó"
+        return f"   cascada: {why}, 0 llamadas al LLM, 0 tokens  ·  {lat_txt}"
+    if usage.get("cached"):
+        return f"   uso del LLM: respuesta de la caché local (0 tokens gastados)  ·  {lat_txt}"
+    parts = [f"{_fmt_num(usage.get('input_tokens'))} tokens de entrada",
+             f"{_fmt_num(usage.get('output_tokens'))} de salida"]
+    if usage.get("cache_read_tokens"):
+        parts.append(f"{usage['cache_read_tokens']} leídos de la caché de prompt")
+    line = "   uso del LLM: " + " + ".join(parts) + f"  ·  {lat_txt}"
+    cost = usage.get("cost_usd")
+    if isinstance(cost, (int, float)) and cost:
+        line += f"  ·  {cost:.4f} USD"
+    if usage.get("model"):
+        line += f"  ·  {usage['model']}"
+    return line
+
+
+def _llm_label(usage: dict | None) -> str:
+    """'LLM (cli)' / 'LLM (sdk, caché)' a partir de `usage` (o de last_call_info)."""
+    usage = usage if isinstance(usage, dict) else {}
+    info: dict = {}
+    try:
+        import llm_scorer
+        info = getattr(llm_scorer, "last_call_info", {}) or {}
+        fallback_backend = usage.get("backend") or info.get("backend") or llm_scorer.available_backend()
+    except ImportError:
+        fallback_backend = usage.get("backend") or "?"
+    cached = usage.get("cached")
+    if cached is None:
+        cached = info.get("cached")
+    return f"LLM ({fallback_backend}" + (", caché)" if cached else ")")
+
+
+def _score_cascade(skills, query: str, model: str | None, use_concepts: bool):
+    """Corre cascade.cascade_score. Devuelve (results, used_llm, usage) o None si
+    la cascada no está o falla (el que llama cae al léxico)."""
+    try:
+        import cascade
+        fn = cascade.cascade_score
+    except (ImportError, AttributeError) as e:
+        print(f"⚠️  --cascade no disponible ({e}); uso el léxico.", file=sys.stderr)
+        return None
+    kwargs: dict = {"model": model, "usage": {}}
+    if not use_concepts:
+        try:
+            accepts = "use_concepts" in inspect.signature(fn).parameters
+        except (TypeError, ValueError):
+            accepts = False
+        if accepts:
+            kwargs["use_concepts"] = False
+        else:
+            print("⚠️  esta cascada no admite --no-concepts; usa los conceptos.", file=sys.stderr)
+    try:
+        results, used_llm = fn(skills, query, **kwargs)
+    except Exception as e:  # LLMUnavailable sin fallback, bug de la cascada...
+        print(f"⚠️  La cascada falló ({type(e).__name__}: {e}); uso el léxico.", file=sys.stderr)
+        return None
+    usage = kwargs["usage"]
+    if not used_llm and usage.get("decision") == "llm_error":
+        print(f"⚠️  La cascada no pudo consultar al LLM ({usage.get('error') or 'sin detalle'}); "
+              "uso el léxico.", file=sys.stderr)
+    return results, bool(used_llm), usage
+
+
 def main(argv: list[str]) -> int:
     try:  # consolas no UTF-8 (p.ej. Windows cp1252): no reventar por los emojis
         sys.stdout.reconfigure(errors="replace")
@@ -608,10 +763,18 @@ def main(argv: list[str]) -> int:
     p.add_argument("--demo", action="store_true", help="usa skills de ejemplo")
     p.add_argument("--no-concepts", action="store_true", help="apaga la capa de conceptos (baseline)")
     p.add_argument("--conflicts", action="store_true", help="lista skills que se solapan (sin query)")
-    p.add_argument("--llm", action="store_true",
-                   help="usa Claude como scorer (SDK con API key o CLI `claude`); si no hay, cae al léxico")
+    mode = p.add_mutually_exclusive_group()
+    mode.add_argument("--llm", action="store_true",
+                      help="usa Claude como scorer (SDK con API key o CLI `claude`); si no hay, "
+                           "cae al léxico. Gasta una llamada por mensaje")
+    mode.add_argument("--cascade", action="store_true",
+                      help="léxico primero y Claude solo si el léxico no es fiable: ahorra "
+                           "llamadas (y cuota del plan) en los mensajes claros")
+    p.add_argument("--model", help="modelo para --llm o --cascade (por defecto, el de llm_scorer)")
     p.add_argument("--top", type=int, default=3, help="max recomendadas (def 3)")
     p.add_argument("--threshold", type=int, default=15, help="score minimo para recomendar (def 15)")
+    p.add_argument("--min-matched", type=int, default=1,
+                   help="coincidencias distintas mínimas para recomendar (def 1; 2 = más precisión)")
     p.add_argument("--json", action="store_true", help="salida JSON")
     args = p.parse_args(argv)
 
@@ -620,6 +783,8 @@ def main(argv: list[str]) -> int:
         p.error("falta el mensaje. Ej: skill_router.py 'preparar examen de calculo'")
     if args.top < 1:
         p.error("--top debe ser 1 o más")
+    if args.model and not (args.llm or args.cascade):
+        print("⚠️  --model solo se usa con --llm o --cascade; lo ignoro.", file=sys.stderr)
 
     # Resolucion de fuente de skills
     if args.demo:
@@ -650,33 +815,53 @@ def main(argv: list[str]) -> int:
         print("\n   Sugerencia: si dos compiten siempre para lo mismo, deja una activa.\n")
         return 0
 
-    scorer = "léxico+conceptos" if not args.no_concepts else "léxico"
+    lexical_label = "léxico+conceptos" if not args.no_concepts else "léxico"
+    scorer = lexical_label
     results = None
+    usage: dict | None = None
+    used_llm = False
     if args.llm:
-        from llm_scorer import llm_score, LLMUnavailable, available_backend, last_call_info
+        import llm_scorer
+        usage = {}
         try:
-            results = llm_score(skills, query)
-            scorer = f"LLM ({last_call_info.get('backend') or available_backend()}"
-            scorer += ", caché)" if last_call_info.get("cached") else ")"
-        except LLMUnavailable as e:
+            results = llm_scorer.llm_score(skills, query, model=args.model, usage=usage)
+            used_llm = True
+            scorer = _llm_label(usage)
+        except llm_scorer.LLMUnavailable as e:
             print(f"⚠️  Scorer LLM no disponible ({e}); uso el léxico.", file=sys.stderr)
+            usage = None
+    elif args.cascade:
+        out = _score_cascade(skills, query, args.model, use_concepts=not args.no_concepts)
+        if out is not None:
+            results, used_llm, usage = out
+            scorer = "cascada: " + (_llm_label(usage) if used_llm else f"{lexical_label}, sin LLM")
     if results is None:
         results = score_skills(skills, query, use_concepts=not args.no_concepts)
-    recommended, noise = classify(results, args.top, args.threshold)
+    recommended, noise = classify(results, args.top, args.threshold, min_matched=args.min_matched)
 
     if args.json:
-        print(json.dumps({
+        out_json = {
             "query": query,
             "source": src_label,
             "scorer": scorer,
             "recommended": recommended,
             "noise": noise,
-        }, ensure_ascii=False, indent=2))
+        }
+        if args.llm or args.cascade:
+            out_json["used_llm"] = used_llm
+            out_json["usage"] = usage
+        print(json.dumps(out_json, ensure_ascii=False, indent=2))
         return 0
 
     shown_query = " ".join(query.split())  # un mensaje multilínea se muestra en una línea
     print(f"\n🧭 Skill Router — contexto: \"{shown_query}\"")
-    print(f"   fuente de skills: {src_label}  ({len(skills)} skills)  ·  scorer: {scorer}\n")
+    print(f"   fuente de skills: {src_label}  ({len(skills)} skills)  ·  scorer: {scorer}")
+    line = _usage_line(usage, used_llm)
+    if line:
+        print(line)
+    if not used_llm and normalize_query(query) != query:
+        print("   (no se puntuó lo pegado: código, trazas o logs)")
+    print()
     if recommended:
         print("✅ Usa estas ahora:")
         for r in recommended:

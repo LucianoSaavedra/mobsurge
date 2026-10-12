@@ -445,13 +445,32 @@ class DetectConflictsTest(unittest.TestCase):
         self.assertEqual(detect_conflicts([a, a, c]), [])
 
     def test_umbral_y_orden(self):
-        skills = demo_skills()
-        self.assertEqual(detect_conflicts(skills), [])  # el set de demo no tiene solapes fuertes
+        # Antes se comprobaba con el demo a 0.1, pero esos dos pares eran espurios
+        # (estudio-a-medida/deep-research solo por ~investigacion, que salía de la
+        # palabra "estudio"; code-review/debug por conceptos de una palabra
+        # suelta). Ver test_demo_sin_solapes_espurios. Aquí, un set con solapes
+        # graduados conocidos.
+        skills = [
+            Skill("a1", "revisar codigo bugs seguridad diff rendimiento"),
+            Skill("a2", "revisar codigo bugs seguridad diff inyeccion"),
+            Skill("a3", "revisar codigo bugs reel tiktok guion escena gancho viral montaje"),
+            Skill("z", "receta cocina pasta tomate"),
+        ]
+        self.assertEqual(len(detect_conflicts(skills)), 1)  # umbral por defecto: solo a1-a2
         low = detect_conflicts(skills, threshold=0.1)
         self.assertGreaterEqual(len(low), 2)
         sims = [p["similarity"] for p in low]
         self.assertEqual(sims, sorted(sims, reverse=True))
         self.assertTrue(all(s >= 0.1 for s in sims))
+        self.assertEqual({low[0]["a"], low[0]["b"]}, {"a1", "a2"})
+        self.assertFalse(any("z" in (p["a"], p["b"]) for p in low))
+
+    def test_demo_sin_solapes_espurios(self):
+        # core-2: con 1 sola palabra de un concepto una skill ya lo recibía, y
+        # "estudio" (que también es ~investigacion) emparejaba estudio-a-medida
+        # con deep-research. Ahora el demo no tiene solapes ni a 0.1.
+        self.assertEqual(detect_conflicts(demo_skills()), [])
+        self.assertEqual(detect_conflicts(demo_skills(), threshold=0.1), [])
 
     def test_sin_terminos_en_comun(self):
         self.assertEqual(detect_conflicts([Skill("aaa", "uno dos"), Skill("bbb", "tres cuatro")],
@@ -524,7 +543,7 @@ class CliTest(NoRealLLMMixin, TempDirTestCase):
         self.assertEqual(data["recommended"][0]["name"], "code-review")
 
     def test_llm_simulado_se_usa_y_se_etiqueta(self):
-        def fake_llm_score(skills, query):
+        def fake_llm_score(skills, query, **_kw):  # el CLI pasa model= y usage=
             llm_scorer.last_call_info.clear()
             llm_scorer.last_call_info.update({"backend": "cli", "cached": True})
             rows = [{"name": s.name, "scenario": s.scenario, "score": 0, "matched": [],

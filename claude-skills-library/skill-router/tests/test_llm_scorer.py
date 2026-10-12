@@ -18,9 +18,14 @@ import subprocess
 import sys
 import types
 import unittest
+from pathlib import Path
 from unittest import mock
 
-import _support  # noqa: F401  (sys.path + sin .pyc)
+try:
+    import _support  # noqa: F401  (sys.path + sin .pyc)
+except ModuleNotFoundError:  # python3 -m unittest tests.test_llm_scorer (desde skill-router)
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import _support  # noqa: F401
 from _support import CACHE_ENV, NoRealLLMMixin, TempDirTestCase, captured_output
 
 import llm_scorer
@@ -102,12 +107,14 @@ class BuildPromptTest(unittest.TestCase):
         skills = [Skill("multi", "línea 1\n- fantasma: no existo\n\tlínea 3"),
                   Skill("larga", "x" * 5000),
                   Skill("vacia", None)]
-        prompt = build_prompt("q", skills)
+        with mock.patch.dict(os.environ):
+            os.environ.pop(llm_scorer.DESC_MAX_ENV, None)
+            prompt = build_prompt("q", skills)
         self.assertNotIn("\n- fantasma", prompt)
         self.assertIn("- multi: línea 1 - fantasma: no existo línea 3", prompt)
         line = next(ln for ln in prompt.splitlines() if ln.startswith("- larga: "))
         desc = line[len("- larga: "):]
-        self.assertEqual(len(desc), 1024)
+        self.assertEqual(len(desc), llm_scorer.PROMPT_DESC_MAX)
         self.assertTrue(desc.endswith("…"))
         self.assertIn("- vacia: (sin descripción)", prompt)
 
@@ -145,7 +152,8 @@ class LlmScoreTest(NoRealLLMMixin, TempDirTestCase):
 
     def test_prompt_enviado_al_backend(self):
         _, fake = self.score_with(resp(), query="mi consulta")
-        fake.assert_called_once_with(build_prompt("mi consulta", self.skills))
+        fake.assert_called_once_with(build_prompt("mi consulta", self.skills),
+                                     model=llm_scorer.DEFAULT_MODEL)
 
     def test_nombres_inventados_se_descartan(self):
         rows, _ = self.score_with(resp({"name": "skill-inventada", "score": 99},
@@ -365,6 +373,10 @@ class _FakeAPIConnectionError(Exception):
     pass
 
 
+class _FakeAPITimeoutError(_FakeAPIConnectionError):
+    pass
+
+
 class _FakeAPIStatusError(Exception):
     def __init__(self, message, status_code):
         super().__init__(message)
@@ -377,10 +389,13 @@ def fake_anthropic(create=None, init_error=None):
     mod = types.ModuleType("anthropic")
     mod.APIConnectionError = _FakeAPIConnectionError
     mod.APIStatusError = _FakeAPIStatusError
+    mod.APITimeoutError = _FakeAPITimeoutError
     calls = []
+    init_calls = []
 
     class Anthropic:
-        def __init__(self):
+        def __init__(self, **kwargs):
+            init_calls.append(kwargs)
             if init_error:
                 raise init_error
             self.messages = types.SimpleNamespace(create=self._create)
@@ -391,6 +406,7 @@ def fake_anthropic(create=None, init_error=None):
 
     mod.Anthropic = Anthropic
     mod.calls = calls
+    mod.init_calls = init_calls
     return mod
 
 
@@ -458,11 +474,15 @@ class CallSdkTest(unittest.TestCase):
 class CallCliTest(unittest.TestCase):
     def test_ok(self):
         done = subprocess.CompletedProcess(args=[], returncode=0, stdout="salida", stderr="")
-        with mock.patch.object(llm_scorer.subprocess, "run", return_value=done) as run:
+        with mock.patch.dict(os.environ), \
+                mock.patch.object(llm_scorer.subprocess, "run", return_value=done) as run:
+            os.environ.pop(llm_scorer.TIMEOUT_ENV, None)
             self.assertEqual(REAL_CALL_CLI("mi prompt"), "salida")
         argv = run.call_args.args[0]
         self.assertEqual(argv[0], "claude")
-        self.assertEqual(argv[argv.index("-p") + 1], "mi prompt")
+        self.assertIn("-p", argv)
+        self.assertNotIn("mi prompt", argv)  # va por stdin
+        self.assertEqual(run.call_args.kwargs["input"], "mi prompt")
         self.assertEqual(argv[argv.index("--model") + 1], llm_scorer.DEFAULT_MODEL)
         self.assertEqual(run.call_args.kwargs["timeout"], llm_scorer.CLI_TIMEOUT_S)
 
@@ -530,6 +550,447 @@ class ConfigFromEnvTest(unittest.TestCase):
 
     def test_modelo_configurable(self):
         self.assertEqual(self.load_fresh(SKILL_ROUTER_MODEL="mi-modelo").DEFAULT_MODEL, "mi-modelo")
+
+
+
+# =====================================================================================
+# Arreglos de la revisión (core-3/4/5/6, int-3/4/6, docs-2) y contrato 5 (uso real)
+# =====================================================================================
+
+# Sobre JSON de `claude -p --output-format json`, con la forma REAL observada en
+# Claude Code 2.1.296 (campos recortados): la llamada principal va en `usage`, y
+# `modelUsage` desglosa también la llamada auxiliar con Haiku que hace el CLI.
+def cli_envelope(result, **over):
+    env = {
+        "type": "result", "subtype": "success", "is_error": False, "num_turns": 1,
+        "result": result, "total_cost_usd": 0.0248835,
+        "usage": {"input_tokens": 2, "cache_creation_input_tokens": 2925,
+                  "cache_read_input_tokens": 0, "output_tokens": 59,
+                  "output_tokens_details": {"thinking_tokens": 0}},
+        "modelUsage": {
+            "claude-haiku-5-5": {"inputTokens": 2830, "outputTokens": 25,
+                                 "cacheReadInputTokens": 0, "cacheCreationInputTokens": 0,
+                                 "costUSD": 0.0002955},
+            "claude-opus-5-5": {"inputTokens": 2, "outputTokens": 59,
+                                "cacheReadInputTokens": 0, "cacheCreationInputTokens": 2925,
+                                "costUSD": 0.024588},
+        },
+        "permission_denials": [],
+    }
+    env.update(over)
+    return json.dumps(env, ensure_ascii=False)
+
+
+def done(stdout="", returncode=0, stderr=""):
+    return subprocess.CompletedProcess(args=[], returncode=returncode, stdout=stdout, stderr=stderr)
+
+
+class CliIsolationTest(unittest.TestCase):
+    """core-4 / int-4: `claude -p` ligero y aislado; contrato 4: guardia en el hijo."""
+
+    def run_cli(self, stdout=None, **env):
+        stdout = cli_envelope(resp()) if stdout is None else stdout
+        with mock.patch.dict(os.environ, env), \
+                mock.patch.object(llm_scorer.subprocess, "run", return_value=done(stdout)) as run:
+            out = REAL_CALL_CLI("p")
+        return out, run.call_args.args[0], run.call_args.kwargs
+
+    def test_sin_herramientas_mcp_hooks_ni_sesion(self):
+        _, argv, _ = self.run_cli()
+        self.assertEqual(argv[argv.index("--tools") + 1], "")  # "" = ninguna herramienta
+        for flag in ("--no-session-persistence", "--strict-mcp-config", "--safe-mode",
+                     "--disable-slash-commands"):
+            self.assertIn(flag, argv)
+        self.assertEqual(json.loads(argv[argv.index("--settings") + 1]), {"disableAllHooks": True})
+        self.assertEqual(argv[argv.index("--system-prompt") + 1], llm_scorer.CLI_SYSTEM_PROMPT)
+        self.assertEqual(argv[argv.index("--output-format") + 1], "json")
+
+    def test_tools_vacio_no_se_come_otros_argumentos(self):
+        # --tools es variádico: lo que le sigue debe ser otra opción, nunca un valor suelto
+        _, argv, _ = self.run_cli()
+        self.assertTrue(argv[argv.index("--tools") + 2].startswith("--"))
+
+    def test_hijo_con_guardia_y_cwd_neutro(self):
+        _, _, kw = self.run_cli()
+        self.assertEqual(kw["env"]["SKILL_ROUTER_CHILD"], "1")
+        self.assertEqual(kw["env"]["SKILL_ROUTER_HOOK_ACTIVE"], "1")
+        self.assertNotEqual(kw["cwd"], os.getcwd())
+        self.assertEqual(Path(kw["cwd"]).name, "skill-router-llm")
+
+    def test_no_modifica_el_entorno_del_padre(self):
+        with mock.patch.dict(os.environ):
+            os.environ.pop("SKILL_ROUTER_CHILD", None)
+            self.run_cli()
+            self.assertNotIn("SKILL_ROUTER_CHILD", os.environ)
+
+    def test_effort_por_defecto_bajo_y_configurable(self):
+        cases = {None: "low", "high": "high", "XHIGH": "xhigh", "basura": "low",
+                 "inherit": None, "": None}
+        for value, expected in cases.items():
+            with self.subTest(value=value):
+                with mock.patch.dict(os.environ):
+                    if value is None:
+                        os.environ.pop(llm_scorer.EFFORT_ENV, None)
+                    else:
+                        os.environ[llm_scorer.EFFORT_ENV] = value
+                    _, argv, _ = self.run_cli()
+                if expected is None:
+                    self.assertNotIn("--effort", argv)
+                else:
+                    self.assertEqual(argv[argv.index("--effort") + 1], expected)
+
+    def test_modelo_explicito(self):
+        with mock.patch.object(llm_scorer.subprocess, "run",
+                               return_value=done(cli_envelope(resp()))) as run:
+            REAL_CALL_CLI("p", model="claude-haiku-5-5")
+        argv = run.call_args.args[0]
+        self.assertEqual(argv[argv.index("--model") + 1], "claude-haiku-5-5")
+
+    def test_cli_antiguo_sin_alguna_opcion_avisa_de_actualizar(self):
+        with mock.patch.object(llm_scorer.subprocess, "run", return_value=done(
+                "", 1, "error: unknown option '--safe-mode'")):
+            with self.assertRaises(LLMUnavailable) as cm:
+                REAL_CALL_CLI("p")
+        self.assertIn("actualiza Claude Code", str(cm.exception))
+
+    @unittest.skipUnless(llm_scorer.shutil.which("claude"), "no hay CLI `claude` instalado")
+    def test_las_opciones_existen_en_claude_help(self):
+        """Comprueba contra el CLI instalado (no llama al LLM: solo --help)."""
+        help_text = subprocess.run(["claude", "--help"], capture_output=True, encoding="utf-8",
+                                   errors="replace", timeout=60).stdout
+        for opt in (a for a in llm_scorer._cli_argv("m", "low") if a.startswith("-")):
+            with self.subTest(opt=opt):
+                self.assertIn(opt, help_text)
+
+
+class CliTransportTest(unittest.TestCase):
+    """core-3 / core-5 / int-6: stdin, UTF-8 explícito y errores sin datos sensibles."""
+
+    def test_prompt_por_stdin_y_utf8_explicito(self):
+        with mock.patch.object(llm_scorer.subprocess, "run",
+                               return_value=done(cli_envelope(resp()))) as run:
+            REAL_CALL_CLI("cálculo ñ")
+        kw = run.call_args.kwargs
+        self.assertEqual(kw["input"], "cálculo ñ")
+        self.assertEqual((kw["encoding"], kw["errors"]), ("utf-8", "replace"))
+        self.assertNotIn("text", kw)  # text=True usaría la codificación del locale
+        self.assertNotIn("cálculo ñ", run.call_args.args[0])
+
+    def test_errores_de_decodificacion_y_nul_son_llmunavailable(self):
+        errors = [UnicodeDecodeError("charmap", b"\x8d", 0, 1, "undefined"),
+                  ValueError("embedded null byte"),
+                  subprocess.SubprocessError("raro")]
+        for exc in errors:
+            with self.subTest(exc=type(exc).__name__):
+                with mock.patch.object(llm_scorer.subprocess, "run", side_effect=exc):
+                    with self.assertRaises(LLMUnavailable):
+                        REAL_CALL_CLI("p")
+
+    def test_timeout_no_vuelca_el_prompt(self):
+        exc = subprocess.TimeoutExpired(cmd=["claude", "-p", "mi contraseña es hunter2"], timeout=7)
+        with mock.patch.object(llm_scorer.subprocess, "run", side_effect=exc):
+            with self.assertRaises(LLMUnavailable) as cm:
+                REAL_CALL_CLI("mi contraseña es hunter2")
+        self.assertNotIn("hunter2", str(cm.exception))
+        self.assertIn("no respondió", str(cm.exception))
+
+
+@unittest.skipIf(os.name == "nt", "usa un `claude` falso como script ejecutable POSIX")
+class CliRealSubprocessTest(TempDirTestCase):
+    """Proceso real (un `claude` falso en el PATH, sin LLM): stdin, UTF-8, NUL, E2BIG."""
+
+    def fake_claude(self, stdout_bytes: bytes) -> Path:
+        bindir = self.tmp / "bin"
+        bindir.mkdir(exist_ok=True)
+        log = self.tmp / "log.json"
+        script = bindir / "claude"
+        script.write_text(
+            f"#!{sys.executable}\n"
+            "import json, os, sys\n"
+            "data = sys.stdin.buffer.read()\n"
+            f"with open({str(log)!r}, 'w', encoding='utf-8') as f:\n"
+            "    json.dump({'argv': sys.argv[1:], 'stdin': data.decode('utf-8', 'replace'),\n"
+            "               'child': os.environ.get('SKILL_ROUTER_CHILD'), 'cwd': os.getcwd()}, f)\n"
+            f"sys.stdout.buffer.write({stdout_bytes!r})\n", encoding="utf-8")
+        script.chmod(0o755)
+        env = mock.patch.dict(os.environ, {"PATH": f"{bindir}{os.pathsep}{os.environ.get('PATH', '')}"})
+        env.start()
+        self.addCleanup(env.stop)
+        os.environ.pop(CACHE_ENV, None)
+        return log
+
+    def test_salida_utf8_con_locale_cp1252(self):
+        reason = "Útil: aísla el fallo (ÍNDICE)"  # 'Í' (0x8D) no existe en cp1252
+        log = self.fake_claude(cli_envelope(resp({"name": "debug", "score": 90, "reason": reason}))
+                               .encode("utf-8"))
+        # Simula Windows sin modo UTF-8: text=True decodificaría con cp1252.
+        with mock.patch.object(subprocess, "_text_encoding", create=True, return_value="cp1252"):
+            usage = {}
+            rows = llm_score(demo_skills(), "falla al guardar", backend="cli", usage=usage)
+        self.assertEqual(rows[0]["matched"], [reason])
+        self.assertEqual(json.loads(log.read_text(encoding="utf-8"))["child"], "1")
+        self.assertEqual(usage["input_tokens"], 2 + 2925 + 2830)
+
+    def test_nul_en_descripcion_y_catalogo_enorme(self):
+        log = self.fake_claude(resp({"name": "rara", "score": 80}).encode("utf-8"))
+        skills = [Skill("rara", "desc con \x00 nul")]
+        skills += [Skill(f"s{i}", "x" * 1024) for i in range(400)]  # > 128 KiB en argv
+        with mock.patch.dict(os.environ, {llm_scorer.DESC_MAX_ENV: "1024"}):
+            rows = llm_score(skills, "consulta", backend="cli")
+            prompt = build_prompt("consulta", skills)
+        self.assertGreater(len(prompt.encode("utf-8")), 131072)
+        self.assertEqual((rows[0]["name"], rows[0]["score"]), ("rara", 80))
+        logged = json.loads(log.read_text(encoding="utf-8"))
+        self.assertEqual(logged["stdin"], prompt)
+        self.assertNotIn("consulta", " ".join(logged["argv"]))
+
+
+class CliOutputParsingTest(unittest.TestCase):
+    """Contrato 5 en el CLI: texto y uso REAL del sobre `--output-format json`."""
+
+    def test_sobre_json_con_modelusage_suma_todos_los_modelos(self):
+        out = llm_scorer._parse_cli_output(cli_envelope('{"recommended": []}'))
+        self.assertEqual(out, '{"recommended": []}')
+        self.assertEqual(out.usage, {"input_tokens": 2 + 2925 + 2830, "output_tokens": 59 + 25,
+                                     "cache_read_tokens": 0, "cost_usd": 0.0248835})
+
+    def test_sin_modelusage_usa_usage_del_modelo_principal(self):
+        out = llm_scorer._parse_cli_output(cli_envelope("x", modelUsage=None))
+        self.assertEqual(out.usage["input_tokens"], 2 + 2925)
+        self.assertEqual(out.usage["output_tokens"], 59)
+
+    def test_campos_ausentes_quedan_en_none(self):
+        out = llm_scorer._parse_cli_output(json.dumps({"type": "result", "subtype": "success",
+                                                       "is_error": False, "result": "x"}))
+        self.assertEqual(out.usage, {"input_tokens": None, "output_tokens": None,
+                                     "cache_read_tokens": None, "cost_usd": None})
+
+    def test_salida_que_no_es_el_sobre_se_trata_como_texto(self):
+        for stdout in (resp({"name": "debug", "score": 5}), "texto suelto", ""):
+            with self.subTest(stdout=stdout):
+                out = llm_scorer._parse_cli_output(stdout)
+                self.assertEqual(out, stdout)
+                self.assertEqual(out.usage, {})
+
+    def test_sobre_con_error(self):
+        for over in ({"is_error": True}, {"subtype": "error_max_turns"}):
+            with self.subTest(over=over):
+                with self.assertRaises(LLMUnavailable) as cm:
+                    llm_scorer._parse_cli_output(cli_envelope("Credit balance is too low", **over))
+                self.assertIn("Credit balance", str(cm.exception))
+
+    def test_lista_de_eventos(self):
+        events = [{"type": "system"}, json.loads(cli_envelope("hola"))]
+        self.assertEqual(llm_scorer._parse_cli_output(json.dumps(events)), "hola")
+
+
+class SdkTimeoutAndUsageTest(unittest.TestCase):
+    """core-6 / int-3 / docs-2: SKILL_ROUTER_LLM_TIMEOUT también limita al SDK."""
+
+    def call(self, mod, **kw):
+        with mock.patch.dict(sys.modules, {"anthropic": mod}):
+            return REAL_CALL_SDK("p", **kw)
+
+    def ok_mod(self, usage=None):
+        def create(**kw):
+            msg = message([("text", '{"recommended": []}')])
+            msg.usage = usage
+            return msg
+        return fake_anthropic(create)
+
+    def test_timeout_explicito_sin_reintentos(self):
+        mod = self.ok_mod()
+        with mock.patch.dict(os.environ, {llm_scorer.TIMEOUT_ENV: "20"}):
+            self.call(mod)
+        self.assertEqual(mod.init_calls, [{"timeout": 20, "max_retries": 0}])
+
+    def test_sin_variable_timeout_por_defecto_y_un_reintento(self):
+        mod = self.ok_mod()
+        with mock.patch.dict(os.environ):
+            os.environ.pop(llm_scorer.TIMEOUT_ENV, None)
+            self.call(mod)
+        self.assertEqual(mod.init_calls, [{"timeout": llm_scorer.CLI_TIMEOUT_S, "max_retries": 1}])
+
+    def test_variable_fijada_despues_de_importar_se_respeta(self):
+        # el hook hace setdefault antes de llamar; da igual cuándo se importó el módulo
+        with mock.patch.dict(os.environ, {llm_scorer.TIMEOUT_ENV: "2.5"}):
+            self.assertEqual(llm_scorer._timeout(), (2.5, True))
+        for bad in ("0", "-3", "nan", "inf", "x"):
+            with self.subTest(bad=bad), mock.patch.dict(os.environ, {llm_scorer.TIMEOUT_ENV: bad}):
+                self.assertEqual(llm_scorer._timeout(), (llm_scorer.CLI_TIMEOUT_S, False))
+
+    def test_timeout_del_sdk_es_llmunavailable_claro(self):
+        def slow(**kw):
+            raise _FakeAPITimeoutError("Request timed out.")
+        with mock.patch.dict(os.environ, {llm_scorer.TIMEOUT_ENV: "20"}):
+            with self.assertRaises(LLMUnavailable) as cm:
+                self.call(fake_anthropic(slow))
+        self.assertIn("20 s", str(cm.exception))
+
+    def test_effort_y_modelo(self):
+        mod = self.ok_mod()
+        with mock.patch.dict(os.environ):
+            os.environ.pop(llm_scorer.EFFORT_ENV, None)
+            self.call(mod, model="claude-haiku-5-5")
+        (kw,) = mod.calls
+        self.assertEqual(kw["model"], "claude-haiku-5-5")
+        self.assertEqual(kw["extra_body"], {"output_config": {"effort": "low"}})
+        mod = self.ok_mod()
+        with mock.patch.dict(os.environ, {llm_scorer.EFFORT_ENV: "inherit"}):
+            self.call(mod)
+        self.assertNotIn("extra_body", mod.calls[0])
+
+    def test_uso_real_de_msg_usage(self):
+        u = types.SimpleNamespace(input_tokens=1200, output_tokens=40,
+                                  cache_creation_input_tokens=300, cache_read_input_tokens=50)
+        out = self.call(self.ok_mod(u))
+        self.assertEqual(out.usage, {"input_tokens": 1500, "output_tokens": 40,
+                                     "cache_read_tokens": 50, "cost_usd": None})
+        out = self.call(self.ok_mod(None))  # sin usage: nada inventado
+        self.assertEqual(out.usage, {"input_tokens": None, "output_tokens": None,
+                                     "cache_read_tokens": None, "cost_usd": None})
+
+
+class UsageContractTest(NoRealLLMMixin, TempDirTestCase):
+    """Contrato 5: llm_score(..., model=None, usage=None) rellena el uso real."""
+
+    def setUp(self):
+        super().setUp()
+        self.block_real_llm()
+        self.skills = demo_skills()
+
+    def test_claves_y_valores_con_backend_que_informa(self):
+        reply = llm_scorer._Reply(resp({"name": "debug", "score": 80}),
+                                  {"input_tokens": 3000, "output_tokens": 60,
+                                   "cache_read_tokens": 0, "cost_usd": 0.02})
+        usage = {"previo": 1}
+        with mock.patch.object(llm_scorer, "_call_cli", return_value=reply):
+            llm_score(self.skills, "q", backend="cli", usage=usage)
+        self.assertEqual(set(usage) - {"previo"}, set(llm_scorer.USAGE_KEYS))
+        self.assertEqual(usage["previo"], 1)  # se rellena, no se vacía
+        self.assertEqual((usage["backend"], usage["model"]), ("cli", llm_scorer.DEFAULT_MODEL))
+        self.assertEqual((usage["input_tokens"], usage["output_tokens"], usage["cost_usd"]),
+                         (3000, 60, 0.02))
+        self.assertIs(usage["cached"], False)
+        self.assertIsInstance(usage["latency_s"], float)
+        self.assertGreaterEqual(usage["latency_s"], 0)
+
+    def test_backend_que_no_informa_deja_none(self):
+        usage = {}
+        with mock.patch.object(llm_scorer, "_call_cli", return_value=resp()):
+            llm_score(self.skills, "q", backend="cli", usage=usage)
+        self.assertEqual([usage[k] for k in ("input_tokens", "output_tokens", "cache_read_tokens",
+                                             "cost_usd")], [None] * 4)
+
+    def test_modelo_explicito_llega_al_backend_y_al_uso(self):
+        usage = {}
+        with mock.patch.object(llm_scorer, "_call_cli", return_value=resp()) as cli:
+            llm_score(self.skills, "q", backend="cli", model="claude-haiku-5-5", usage=usage)
+        self.assertEqual(cli.call_args.kwargs["model"], "claude-haiku-5-5")
+        self.assertEqual(usage["model"], "claude-haiku-5-5")
+        self.assertEqual(llm_scorer.last_call_info["model"], "claude-haiku-5-5")
+
+    def test_cache_no_gasta_tokens_y_su_clave_incluye_modelo_y_effort(self):
+        os.environ[CACHE_ENV] = str(self.tmp / "cache")
+        reply = llm_scorer._Reply(resp({"name": "debug", "score": 80}),
+                                  {"input_tokens": 3000, "output_tokens": 60})
+        with mock.patch.object(llm_scorer, "_call_cli", return_value=reply) as cli:
+            llm_score(self.skills, "q", backend="cli")
+            usage = {}
+            llm_score(self.skills, "q", backend="cli", usage=usage)
+            self.assertEqual(cli.call_count, 1)
+            self.assertEqual((usage["cached"], usage["input_tokens"], usage["output_tokens"],
+                              usage["cache_read_tokens"], usage["cost_usd"]), (True, 0, 0, 0, 0.0))
+            llm_score(self.skills, "q", backend="cli", model="claude-haiku-5-5")
+            self.assertEqual(cli.call_count, 2)
+            os.environ[llm_scorer.EFFORT_ENV] = "high"
+            llm_score(self.skills, "q", backend="cli")
+            self.assertEqual(cli.call_count, 3)
+        self.assertEqual(len(list((self.tmp / "cache").glob("*.json"))), 3)
+
+    def test_uso_relleno_aunque_falle(self):
+        usage = {}
+        with mock.patch.object(llm_scorer, "_call_cli", side_effect=LLMUnavailable("caído")):
+            with self.assertRaises(LLMUnavailable):
+                llm_score(self.skills, "q", backend="cli", usage=usage)
+        self.assertEqual(usage["backend"], "cli")
+        self.assertIsNone(usage["input_tokens"])
+        self.assertIsNotNone(usage["latency_s"])
+        # respuesta inservible: los tokens sí se gastaron y se informan
+        usage = {}
+        with mock.patch.object(llm_scorer, "_call_cli",
+                               return_value=llm_scorer._Reply("no es json", {"input_tokens": 9})):
+            with self.assertRaises(LLMUnavailable):
+                llm_score(self.skills, "q", backend="cli", usage=usage)
+        self.assertEqual(usage["input_tokens"], 9)
+
+    def test_sin_backend_tambien_rellena(self):
+        usage = {}
+        with mock.patch.object(llm_scorer, "available_backend", return_value=None):
+            with self.assertRaises(LLMUnavailable):
+                llm_score(self.skills, "q", usage=usage)
+        self.assertEqual(set(usage), set(llm_scorer.USAGE_KEYS))
+
+
+class CompactPromptTest(unittest.TestCase):
+    """Prompt compacto: descripciones recortadas (configurable) y mensaje acotado."""
+
+    def setUp(self):
+        env = mock.patch.dict(os.environ)
+        env.start()
+        self.addCleanup(env.stop)
+        for var in (llm_scorer.DESC_MAX_ENV, llm_scorer.QUERY_MAX_ENV):
+            os.environ.pop(var, None)
+
+    def long_skills(self):
+        return [Skill(f"skill-{i}", ("Use this skill when the user wants something. " * 30).strip())
+                for i in range(20)]
+
+    def test_descripciones_recortadas_y_configurables(self):
+        skills = self.long_skills()
+        lines = [ln for ln in build_prompt("q", skills).splitlines() if ln.startswith("- skill-")]
+        self.assertEqual(len(lines), 20)
+        for ln in lines:
+            self.assertLessEqual(len(ln.split(": ", 1)[1]), llm_scorer.PROMPT_DESC_MAX)
+        os.environ[llm_scorer.DESC_MAX_ENV] = "80"
+        desc = build_prompt("q", skills).split("- skill-0: ", 1)[1].split("\n", 1)[0]
+        self.assertEqual(len(desc), 80)
+        self.assertEqual(len(build_prompt("q", skills, desc_max=50).split("- skill-0: ", 1)[1]
+                             .split("\n", 1)[0]), 50)
+        os.environ[llm_scorer.DESC_MAX_ENV] = "no"  # inválido: el valor por defecto
+        self.assertIn("- skill-0: " + skills[0].description[:llm_scorer.PROMPT_DESC_MAX - 1],
+                      build_prompt("q", skills))
+
+    def test_mucho_mas_corto_que_el_prompt_anterior(self):
+        # el prompt de antes mandaba hasta 1024 caracteres por descripción
+        skills = self.long_skills()
+        old_catalog = sum(len(llm_scorer._one_line(s.description, 1024)) for s in skills)
+        self.assertLess(len(build_prompt("q", skills)), old_catalog * 0.4)
+
+    def test_mensaje_largo_conserva_principio_y_final(self):
+        query = "PETICION: revisa esto. " + "log " * 5000 + " FINAL: ¿qué falla?"
+        prompt = build_prompt(query, demo_skills())
+        shown = json.loads(prompt.split("Mensaje (string JSON): ", 1)[1].split("\n", 1)[0])
+        self.assertLessEqual(len(shown), llm_scorer.PROMPT_QUERY_MAX)
+        self.assertTrue(shown.startswith("PETICION: revisa esto."))
+        self.assertTrue(shown.endswith("FINAL: ¿qué falla?"))
+        self.assertIn(" … ", shown)
+        self.assertEqual(llm_scorer._clip_query("corto", 100), "corto")
+
+    def test_reglas_basicas_presentes(self):
+        prompt = build_prompt("q", demo_skills())
+        for needle in ('"recommended"', '"name"', '"score"', '"reason"', "DATO", "español"):
+            self.assertIn(needle, prompt)
+
+
+class CacheWriteTest(TempDirTestCase):
+    def test_fallo_al_renombrar_no_deja_temporales(self):
+        path = self.tmp / "c" / "k.json"
+        with mock.patch.object(llm_scorer.os, "replace", side_effect=OSError("disco lleno")), \
+                captured_output() as (_, err):
+            llm_scorer._cache_put(path, "cli", "m", "raw")
+        self.assertIn("No pude escribir la caché", err.getvalue())
+        self.assertEqual(list((self.tmp / "c").iterdir()), [])
 
 
 if __name__ == "__main__":
