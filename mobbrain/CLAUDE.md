@@ -14,7 +14,7 @@ Plugin de Minecraft (Paper) con un árbol de decisión que aprende cómo juega c
 Instalar MobBrain desde GitHub, dejar la IA activada y prender el server, en su compu (Windows):
 
 1. Clonar `https://github.com/LucianoSaavedra/mobsurge`, rama `mobbrain`. El proyecto está en la carpeta `mobbrain/` (ya está subido).
-2. Compilar en `mobbrain/` con `mvn clean package` → `target/MobBrain.jar`. Si no hay Maven, se puede instalar o usar GitHub Actions: falta subir a la raíz del repo un workflow `.github/workflows/mobbrain.yml` igual al de `mobbrain/.github/workflows/build.yml` pero con `working-directory: mobbrain` y `path: mobbrain/target/MobBrain.jar`.
+2. Conseguir `MobBrain.jar`: compilar en `mobbrain/` con `mvn clean package` (queda en `target/MobBrain.jar`) o usar GitHub Actions. El workflow `.github/workflows/mobbrain.yml` ya está en la rama `mobbrain` y compila solo con cada push a `mobbrain/` (también se puede correr a mano con "Run workflow"); el jar sale en Artifacts.
 3. Si el server está prendido, apagarlo escribiendo `stop` en su consola (nunca matar el proceso).
 4. En `C:\Users\ESI\Desktop\minecraftserver\plugins`: mover `MobSurge.jar` a `plugins\desactivados\` (no borrarlo) y copiar `MobBrain.jar`.
 5. La IA queda activada sola con la config por defecto (niveles, hordas y entrenamiento automático). No hace falta tocar nada; `plugins/MobBrain/config.yml` se crea en el primer arranque.
@@ -94,7 +94,7 @@ Comandos: `/ia nivel [jugador]` (nivel y camino en el árbol), `/ia arbol`, `/ia
 
 ## Compilar
 
-- **GitHub Actions:** el código está en `LucianoSaavedra/mobsurge`, rama `mobbrain`, carpeta `mobbrain/` (ver la primera tarea para el workflow). Compila con JDK 25 y Maven y deja `MobBrain.jar` en Artifacts.
+- **GitHub Actions:** el código está en `LucianoSaavedra/mobsurge`, rama `mobbrain`, carpeta `mobbrain/`. El workflow `.github/workflows/mobbrain.yml` compila con JDK 25 y Maven y deja `MobBrain.jar` en Artifacts.
 - **Maven local:** `mvn clean package` → `target/MobBrain.jar`. El `pom.xml` usa `paper-api` `[26.1.2.build,)`, o sea la última versión publicada; el código compila igual contra 26.2.
 - **Sin Maven** (si el repo de Paper está bloqueado, como pasó en la nube): `bash herramientas/verificar.sh` en Linux, macOS o WSL. Baja las fuentes de la API desde GitHub, genera stubs exactos, compila `target/MobBrain.jar`, verifica cada llamada a la API y corre las dos pruebas. Detalles en `herramientas/README.md`.
 
