@@ -66,6 +66,13 @@ def tokenize(text: str) -> list[str]:
             if (len(t) > 2 or t in SHORT_TOKENS) and t not in STOPWORDS]
 
 
+# Una skill solo recibe el concepto X si su texto trae al menos 2 términos
+# distintos de X. Las descripciones reales (en inglés) usan palabras sueltas que
+# están en CONCEPTS ("request", "email", "copy", "test"...) sin ser de ese
+# dominio; con 1 bastaba para que "revisa este PR" recomendara computer-use.
+SKILL_CONCEPT_MIN_TERMS = 2
+
+
 @dataclass
 class Skill:
     name: str
@@ -80,10 +87,103 @@ class Skill:
         blob = f"{name} {name} {self.scenario or ''} {self.description or ''}"
         toks = tokenize(blob)
         if use_concepts:
-            toks = expand_tokens(toks)
+            toks = expand_tokens(toks, min_terms=SKILL_CONCEPT_MIN_TERMS)
         self.terms = {}
         for t in toks:
             self.terms[t] = self.terms.get(t, 0) + 1
+
+
+# --- Limpieza del mensaje (normalize_query) -----------------------------------
+# Lo pegado (código, trazas, logs) no es la petición: si se puntúa, cada
+# identificador desconocido suma al denominador del score y la skill que encaja
+# con lo que el usuario TECLEÓ queda por debajo del umbral.
+_PASTED_BLOCK = re.compile(r"<pasted_content\b[^>]*>.*?(?:</pasted_content\s*>|\Z)",
+                           re.S | re.I)
+_PASTED_TAG = re.compile(r"</?pasted_content\b[^>]*>", re.I)
+_FENCE = re.compile(r"^[ \t]*(`{3,}|~{3,})")
+_INDENTED = re.compile(r"^(?: {2,}|\t)\S")
+_LIST_ITEM = re.compile(r"^\s*(?:[-*+]|\d{1,3}[.)])\s+[^\W\d_]")
+_DIFF_LINE = re.compile(r"^(?:\+\+\+ |--- [ab/]|@@ |[+-](?: {2,}|\t)\S)")
+_LOG_LINE = re.compile(r"""^\s*(?:
+      Traceback\ \(most\ recent\ call\ last\)
+    | During\ handling\ of\ the\ above\ exception
+    | File\ "[^"]*",\ line\ \d+
+    | at\ \S+\ \(.*:\d+(?::\d+)?\)\s*$          # marco de pila JS/Java
+    | at\ [\w$.<>/\\-]+:\d+(?::\d+)?\s*$
+    | at\ [\w$.<>]+\([\w$.]*(?:\.\w+:\d+|Native\ Method|Unknown\ Source)\)
+    | (?:Uncaught\ |Caused\ by:\ )?[A-Za-z_][\w.]*?(?:Error|Exception|Warning)(?:\ \[\w+\])?:
+    | \d{4}-\d{2}-\d{2}[T\ ]\d{2}:\d{2}           # timestamp de log
+    | \[?\d{2}:\d{2}:\d{2}
+    | \[?(?:TRACE|DEBUG|INFO|NOTICE|WARN|WARNING|ERROR|ERR|FATAL|CRITICAL|SEVERE)\]?(?:\s|:|$)
+    | npm\ (?:ERR!|WARN)
+    | (?:panic|fatal):\
+    | (?:error|warning)\[\w+\]:
+    | E\ {2,}\S                                   # pytest
+    | (?:\$|>>>|\.\.\.)\ \S                       # prompt de shell / REPL
+)""", re.X)
+_INLINE_CODE = re.compile(r"`[^`\n]+`")
+_CODE_SYMBOLS = frozenset("{}[]()<>=;:/\\|&*+^%$#@~`\"'_")
+
+
+def _symbol_heavy(line: str) -> bool:
+    """True si la línea parece código o datos: muchos símbolos de código.
+
+    Cuenta {}[]()<>=;:/\\|&*+^%$#@~`"'_ y los puntos pegados entre letras
+    (`obj.attr`) frente al total de caracteres visibles. La puntuación normal
+    de una frase (.,¿?¡!) no cuenta, y el código entre comillas invertidas se
+    trata como una palabra más: `revisa \\`foo()\\` en auth.py` es una petición.
+    """
+    s = _INLINE_CODE.sub("x", line)
+    chars = [c for c in s if not c.isspace()]
+    if not chars:
+        return False
+    sym = sum(1 for c in chars if c in _CODE_SYMBOLS)
+    sym += len(re.findall(r"(?<=\w)\.(?=\w)", s))
+    return sym >= 2 and sym / len(chars) >= 0.25
+
+
+def normalize_query(text: str) -> str:
+    """Quita del mensaje lo pegado que no es la petición del usuario.
+
+    Elimina:
+    - bloques ``` ... ``` o ~~~ ... ~~~ (uno sin cerrar llega hasta el final),
+    - el contenido entre <pasted_content ...> y </pasted_content> (con las
+      marcas; una marca sin cierre llega hasta el final),
+    - líneas de traceback o log ("Traceback (most recent call last)",
+      'File "x.py", line 3', "at foo (app.js:1:2)", "ValueError: ...",
+      timestamps, niveles INFO/ERROR..., prompts "$ " o ">>> "),
+    - líneas con sangría de código (2+ espacios o tabulador; las viñetas de
+      una lista con texto se conservan) y líneas de diff,
+    - líneas dominadas por símbolos de código.
+
+    Si después no queda ningún término útil (lo que se pegó era todo el
+    mensaje), devuelve el texto original sin tocar.
+    """
+    if not text:
+        return text or ""
+    cleaned = _PASTED_BLOCK.sub("\n", text)
+    cleaned = _PASTED_TAG.sub("", cleaned)
+    kept: list[str] = []
+    fence: str | None = None
+    for line in cleaned.splitlines():
+        m = _FENCE.match(line)
+        if fence is not None:
+            if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):
+                fence = None
+            continue
+        if m:
+            fence = m.group(1)
+            continue
+        if not line.strip():
+            kept.append("")
+            continue
+        if _INDENTED.match(line) and not (_LIST_ITEM.match(line) and not _symbol_heavy(line)):
+            continue
+        if _DIFF_LINE.match(line) or _LOG_LINE.match(line) or _symbol_heavy(line):
+            continue
+        kept.append(line)
+    out = "\n".join(kept).strip()
+    return out if tokenize(out) else text
 
 
 # --- Carga de skills ---------------------------------------------------------
@@ -308,13 +408,20 @@ def demo_skills() -> list[Skill]:
 
 
 # --- Scoring (baseline IDF) --------------------------------------------------
-def score_skills(skills: list[Skill], query: str, use_concepts: bool = True) -> list[dict]:
+QUERY_IDF_CAP_TERMS: float | None = None
+def score_skills(skills: list[Skill], query: str, use_concepts: bool = True,
+                 normalize: bool = True) -> list[dict]:
     """Puntúa cada skill (0-100) contra el mensaje.
 
     score = 100 × IDF(términos del mensaje que la skill contiene) / IDF(todos los
     términos del mensaje). Si el mensaje no deja ningún término útil tras
     tokenizar (vacío, solo stopwords o signos), todas puntúan 0.
+
+    normalize=True (por defecto) pasa antes el mensaje por normalize_query: el
+    código, las trazas y los logs pegados no cuentan, solo lo que se pidió.
     """
+    if normalize:
+        query = normalize_query(query)
     for s in skills:
         s.build_terms(use_concepts=use_concepts)
     n = max(1, len(skills))
@@ -332,6 +439,8 @@ def score_skills(skills: list[Skill], query: str, use_concepts: bool = True) -> 
         q_terms = expand_tokens(q_terms)
     q_unique = list(dict.fromkeys(q_terms))
     total_idf = sum(idf(t) for t in q_unique)
+    if QUERY_IDF_CAP_TERMS:
+        total_idf = min(total_idf, QUERY_IDF_CAP_TERMS * (math.log(n + 1) + 1.0))
 
     results = []
     for s in skills:
@@ -397,18 +506,57 @@ def _pretty(matched: list[str]) -> list[str]:
     return out
 
 
-def classify(results: list[dict], top: int, threshold: int) -> tuple[list[dict], list[dict]]:
+_LEXICAL_MATCH = re.compile(r"^(?:concept:[a-z_]+|[a-z0-9]+)$")
+
+
+def match_evidence(matched: list) -> int | None:
+    """Cuántas coincidencias distintas hay en `matched` (para min_matched).
+
+    Cuenta cada término distinto y cada "concept:x" distinto. Que el concepto
+    cuente aunque venga de la misma palabra es deliberado: una skill solo
+    tiene concept:x si su texto trae 2 o más términos de x
+    (SKILL_CONCEPT_MIN_TERMS), así que palabra + concepto ya dice "esta skill es
+    de ese dominio". Medido con 62 skills reales y casos propios, no contar el
+    concepto cuando una palabra coincidente ya pertenece a él perdía 5 de 28
+    aciertos por quitar solo 2 de 24 recomendaciones falsas.
+
+    Devuelve None si `matched` no son tokens léxicos (p.ej. el motivo en texto
+    libre del scorer LLM): ahí no hay coincidencias que contar.
+    """
+    items = {str(m) for m in (matched or [])}
+    if any(not _LEXICAL_MATCH.match(m) for m in items):
+        return None
+    return len(items)
+
+
+def classify(results: list[dict], top: int, threshold: int,
+             min_matched: int = 1) -> tuple[list[dict], list[dict]]:
     """Separa recomendadas (score >= threshold, máx. `top`) del ruido (< threshold).
 
     Una skill con score 0 nunca se recomienda, aunque threshold sea 0: no coincidió
     en nada. Las que superan el umbral pero quedan fuera del top no son ni
     recomendadas ni ruido (son relevantes, solo que hay mejores).
+
+    min_matched: además del umbral, exige al menos esas coincidencias
+    independientes en "matched" (ver match_evidence). Una skill que supera el
+    umbral con menos pasa a ruido. Con 1 (por defecto) no se mira "matched" y
+    el comportamiento es el de siempre. Las filas del scorer LLM (su "matched"
+    es un motivo en texto, no tokens) no se filtran por esto: el LLM ya decidió.
     """
     top = max(0, int(top))
-    recommended = [r for r in results if r["score"] > 0 and r["score"] >= threshold][:top]
+    min_matched = int(min_matched)
+
+    def weak(r: dict) -> bool:
+        if min_matched <= 1:
+            return False
+        ev = match_evidence(r.get("matched"))
+        return ev is not None and ev < min_matched
+
+    recommended = [r for r in results
+                   if r["score"] > 0 and r["score"] >= threshold and not weak(r)][:top]
     rec_ids = {id(r) for r in recommended}
     noise = [r for r in results
-             if id(r) not in rec_ids and (r["score"] < threshold or r["score"] <= 0)]
+             if id(r) not in rec_ids and (r["score"] < threshold or r["score"] <= 0 or weak(r))]
     return recommended, noise
 
 

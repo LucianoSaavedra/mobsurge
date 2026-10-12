@@ -72,10 +72,26 @@ def concepts_for(term: str) -> list[str]:
     return _TERM_TO_CONCEPTS.get(term, [])
 
 
-def expand_tokens(tokens: list[str]) -> list[str]:
-    """Devuelve los tokens más un token 'concept:<x>' por cada concepto activado."""
+def expand_tokens(tokens: list[str], min_terms: int = 1) -> list[str]:
+    """Devuelve los tokens más un token 'concept:<x>' por cada concepto activado.
+
+    min_terms: un concepto solo se activa si al menos esa cantidad de términos
+    DISTINTOS suyos aparece en `tokens`. Con 1 (por defecto) basta uno, que es
+    lo que se quiere en el mensaje del usuario ("repasar" ya dice ~estudio). Al
+    etiquetar una skill se usa 2: una palabra suelta de una descripción en
+    inglés ("...email or print", "...run evals to test a skill") no basta para
+    darle un dominio que no tiene.
+    """
     out = list(tokens)
+    allowed: set[str] | None = None
+    if min_terms > 1:
+        seen: dict[str, set[str]] = {}
+        for t in tokens:
+            for c in concepts_for(t):
+                seen.setdefault(c, set()).add(t)
+        allowed = {c for c, ts in seen.items() if len(ts) >= min_terms}
     for t in tokens:
         for c in concepts_for(t):
-            out.append(f"concept:{c}")
+            if allowed is None or c in allowed:
+                out.append(f"concept:{c}")
     return out
