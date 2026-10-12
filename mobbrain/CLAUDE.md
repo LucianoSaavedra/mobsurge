@@ -9,6 +9,19 @@ Plugin de Minecraft (Paper) con un árbol de decisión que aprende cómo juega c
 - Quiere aprender, no solo recibir código. Explicá el porqué de cada cambio y conectalo con lo que ve en la facu: en Estructuras de Datos (SIS-211) ya vio listas, pilas, colas y tablas hash, y ahora está con árboles binarios. Este plugin es justamente un árbol binario que aprende solo.
 - Cuando algo falla en el server, pedile el texto o una captura de la consola.
 
+## Primera tarea (la pidió Luciano)
+
+Instalar MobBrain desde GitHub, dejar la IA activada y prender el server, en su compu (Windows):
+
+1. Clonar `https://github.com/LucianoSaavedra/mobsurge`, rama `mobbrain`. El proyecto está en la carpeta `mobbrain/` (ya está subido).
+2. Compilar en `mobbrain/` con `mvn clean package` → `target/MobBrain.jar`. Si no hay Maven, se puede instalar o usar GitHub Actions: falta subir a la raíz del repo un workflow `.github/workflows/mobbrain.yml` igual al de `mobbrain/.github/workflows/build.yml` pero con `working-directory: mobbrain` y `path: mobbrain/target/MobBrain.jar`.
+3. Si el server está prendido, apagarlo escribiendo `stop` en su consola (nunca matar el proceso).
+4. En `C:\Users\ESI\Desktop\minecraftserver\plugins`: mover `MobSurge.jar` a `plugins\desactivados\` (no borrarlo) y copiar `MobBrain.jar`.
+5. La IA queda activada sola con la config por defecto (niveles, hordas y entrenamiento automático). No hace falta tocar nada; `plugins/MobBrain/config.yml` se crea en el primer arranque.
+6. Prender el server desde esa carpeta con `start "" iniciar-server-optimizado.bat`, para que abra su propia ventana y no quede atado a Claude Code.
+7. Confirmar en `logs/latest.log` que aparezcan `Done (` y `MobBrain activado`, y que no haya errores de MobBrain. Si los hay, mostrárselos y arreglarlos.
+8. Avisarle que prenda Playit.gg si van a entrar amigos, y que en el juego pruebe `/ia nivel` y `/ia stats`.
+
 ## El server
 
 - Paper 26.1.2 build 74 (`paper-26.1.2-74.jar`) en su laptop: Windows 10, Dell G5 5590, i7-9750H, 16 GB de RAM. Carpeta: `C:\Users\ESI\Desktop\minecraftserver`.
@@ -81,7 +94,7 @@ Comandos: `/ia nivel [jugador]` (nivel y camino en el árbol), `/ia arbol`, `/ia
 
 ## Compilar
 
-- **GitHub Actions:** el código está en el repo `LucianoSaavedra/mobsurge`, rama `mobbrain`, carpeta `mobbrain/`. El workflow `.github/workflows/mobbrain.yml` compila con JDK 25 y Maven y deja `MobBrain.jar` en Artifacts.
+- **GitHub Actions:** el código está en `LucianoSaavedra/mobsurge`, rama `mobbrain`, carpeta `mobbrain/` (ver la primera tarea para el workflow). Compila con JDK 25 y Maven y deja `MobBrain.jar` en Artifacts.
 - **Maven local:** `mvn clean package` → `target/MobBrain.jar`. El `pom.xml` usa `paper-api` `[26.1.2.build,)`, o sea la última versión publicada; el código compila igual contra 26.2.
 - **Sin Maven** (si el repo de Paper está bloqueado, como pasó en la nube): `bash herramientas/verificar.sh` en Linux, macOS o WSL. Baja las fuentes de la API desde GitHub, genera stubs exactos, compila `target/MobBrain.jar`, verifica cada llamada a la API y corre las dos pruebas. Detalles en `herramientas/README.md`.
 
