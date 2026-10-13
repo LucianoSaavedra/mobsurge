@@ -1,0 +1,1597 @@
+{
+ "version": 1,
+ "derived_from": "heldout.json",
+ "note": "Generado por bench/make_stress.py desde heldout.json; no editar a mano.",
+ "cases": [
+  {
+   "query": "hazme flashcards del tema 4 de biología para el examen del viernes\n\nTraceback (most recent call last):\n  File \"/srv/app/main.py\", line 42, in <module>\n    run()\n  File \"/srv/app/main.py\", line 17, in run\n    total = items[3]\nIndexError: list index out of range",
+   "expected": [
+    "estudio-a-medida"
+   ],
+   "kind": "directo",
+   "variant": "traceback",
+   "source": 1
+  },
+  {
+   "query": "Te escribo desde el móvil mientras espero el autobús, así que perdona si me explico regular; llevo toda la semana liado con mil cosas y por fin tengo un rato tranquilo. hazme flashcards del tema 4 de biología para el examen del viernes",
+   "expected": [
+    "estudio-a-medida"
+   ],
+   "kind": "directo",
+   "variant": "contexto",
+   "source": 1
+  },
+  {
+   "query": "hazme flashcards del tema 4 de biología para el examen del viernes\n<pasted_content>\nActa de la reunión de vecinos del 3 de marzo. Asistentes: 14. Se aprueba cambiar la iluminación del portal y revisar el presupuesto del ascensor. Próxima reunión en abril. Ruegos y preguntas: ninguno.\n</pasted_content>",
+   "expected": [
+    "estudio-a-medida"
+   ],
+   "kind": "directo",
+   "variant": "pegado",
+   "source": 1
+  },
+  {
+   "query": "prepárame un simulacro de examen de historia según la rúbrica que nos dio la profe\n\n2026-03-02 10:14:07,881 INFO  worker started pid=4412\n2026-03-02 10:14:08,002 WARN  cache miss key=session:91\n2026-03-02 10:14:09,517 ERROR request failed status=500 path=/api/v1/orders",
+   "expected": [
+    "estudio-a-medida"
+   ],
+   "kind": "directo",
+   "variant": "traceback",
+   "source": 2
+  },
+  {
+   "query": "Antes de nada, gracias por la paciencia de siempre; hoy ha sido un día largo, hace un frío tremendo y acabo de llegar a casa después de pasar la tarde con mi familia. prepárame un simulacro de examen de historia según la rúbrica que nos dio la profe",
+   "expected": [
+    "estudio-a-medida"
+   ],
+   "kind": "directo",
+   "variant": "contexto",
+   "source": 2
+  },
+  {
+   "query": "prepárame un simulacro de examen de historia según la rúbrica que nos dio la profe\n<pasted_content>\nLista de la compra: leche, pan, huevos, tomates, aceite de oliva, arroz, café, papel de cocina, detergente. Recordar pasar por la farmacia antes de las ocho.\n</pasted_content>",
+   "expected": [
+    "estudio-a-medida"
+   ],
+   "kind": "directo",
+   "variant": "pegado",
+   "source": 2
+  },
+  {
+   "query": "necesito copy para una campaña de email de black friday\n\nTypeError: Cannot read properties of undefined (reading 'map')\n    at render (webpack:///src/List.jsx:12:18)\n    at mountComponent (react-dom.development.js:1450:7)",
+   "expected": [
+    "marca-marketing"
+   ],
+   "kind": "directo",
+   "variant": "traceback",
+   "source": 3
+  },
+  {
+   "query": "Bueno, a ver cómo lo cuento: es lunes, el café se me ha quedado frío y tengo la mesa llena de papeles, pero quiero quitarme esto de encima cuanto antes. necesito copy para una campaña de email de black friday",
+   "expected": [
+    "marca-marketing"
+   ],
+   "kind": "directo",
+   "variant": "contexto",
+   "source": 3
+  },
+  {
+   "query": "necesito copy para una campaña de email de black friday\n<pasted_content>\nHorario del gimnasio: lunes a viernes de 7:00 a 22:00, sábados de 9:00 a 14:00. Las clases de spinning se reservan en recepción con un día de antelación.\n</pasted_content>",
+   "expected": [
+    "marca-marketing"
+   ],
+   "kind": "directo",
+   "variant": "pegado",
+   "source": 3
+  },
+  {
+   "query": "optimiza el SEO de mi landing y dime cómo mejorar la conversión\n\nTraceback (most recent call last):\n  File \"/srv/app/main.py\", line 42, in <module>\n    run()\n  File \"/srv/app/main.py\", line 17, in run\n    total = items[3]\nIndexError: list index out of range",
+   "expected": [
+    "marca-marketing"
+   ],
+   "kind": "directo",
+   "variant": "traceback",
+   "source": 4
+  },
+  {
+   "query": "Te escribo desde el móvil mientras espero el autobús, así que perdona si me explico regular; llevo toda la semana liado con mil cosas y por fin tengo un rato tranquilo. optimiza el SEO de mi landing y dime cómo mejorar la conversión",
+   "expected": [
+    "marca-marketing"
+   ],
+   "kind": "directo",
+   "variant": "contexto",
+   "source": 4
+  },
+  {
+   "query": "optimiza el SEO de mi landing y dime cómo mejorar la conversión\n<pasted_content>\nActa de la reunión de vecinos del 3 de marzo. Asistentes: 14. Se aprueba cambiar la iluminación del portal y revisar el presupuesto del ascensor. Próxima reunión en abril. Ruegos y preguntas: ninguno.\n</pasted_content>",
+   "expected": [
+    "marca-marketing"
+   ],
+   "kind": "directo",
+   "variant": "pegado",
+   "source": 4
+  },
+  {
+   "query": "escríbeme un guion para un reel de 30 segundos sobre mi cafetería, con un buen gancho al principio\n\n2026-03-02 10:14:07,881 INFO  worker started pid=4412\n2026-03-02 10:14:08,002 WARN  cache miss key=session:91\n2026-03-02 10:14:09,517 ERROR request failed status=500 path=/api/v1/orders",
+   "expected": [
+    "guiones-video"
+   ],
+   "kind": "directo",
+   "variant": "traceback",
+   "source": 5
+  },
+  {
+   "query": "Antes de nada, gracias por la paciencia de siempre; hoy ha sido un día largo, hace un frío tremendo y acabo de llegar a casa después de pasar la tarde con mi familia. escríbeme un guion para un reel de 30 segundos sobre mi cafetería, con un buen gancho al principio",
+   "expected": [
+    "guiones-video"
+   ],
+   "kind": "directo",
+   "variant": "contexto",
+   "source": 5
+  },
+  {
+   "query": "escríbeme un guion para un reel de 30 segundos sobre mi cafetería, con un buen gancho al principio\n<pasted_content>\nLista de la compra: leche, pan, huevos, tomates, aceite de oliva, arroz, café, papel de cocina, detergente. Recordar pasar por la farmacia antes de las ocho.\n</pasted_content>",
+   "expected": [
+    "guiones-video"
+   ],
+   "kind": "directo",
+   "variant": "pegado",
+   "source": 5
+  },
+  {
+   "query": "revisa este pull request, me preocupa que haya inyección SQL en el endpoint de búsqueda\n\nTypeError: Cannot read properties of undefined (reading 'map')\n    at render (webpack:///src/List.jsx:12:18)\n    at mountComponent (react-dom.development.js:1450:7)",
+   "expected": [
+    "code-review"
+   ],
+   "kind": "directo",
+   "variant": "traceback",
+   "source": 6
+  },
+  {
+   "query": "Bueno, a ver cómo lo cuento: es lunes, el café se me ha quedado frío y tengo la mesa llena de papeles, pero quiero quitarme esto de encima cuanto antes. revisa este pull request, me preocupa que haya inyección SQL en el endpoint de búsqueda",
+   "expected": [
+    "code-review"
+   ],
+   "kind": "directo",
+   "variant": "contexto",
+   "source": 6
+  },
+  {
+   "query": "revisa este pull request, me preocupa que haya inyección SQL en el endpoint de búsqueda\n<pasted_content>\nHorario del gimnasio: lunes a viernes de 7:00 a 22:00, sábados de 9:00 a 14:00. Las clases de spinning se reservan en recepción con un día de antelación.\n</pasted_content>",
+   "expected": [
+    "code-review"
+   ],
+   "kind": "directo",
+   "variant": "pegado",
+   "source": 6
+  },
+  {
+   "query": "revisa el diff de este código buscando problemas de rendimiento\n\nTraceback (most recent call last):\n  File \"/srv/app/main.py\", line 42, in <module>\n    run()\n  File \"/srv/app/main.py\", line 17, in run\n    total = items[3]\nIndexError: list index out of range",
+   "expected": [
+    "code-review"
+   ],
+   "kind": "directo",
+   "variant": "traceback",
+   "source": 7
+  },
+  {
+   "query": "Te escribo desde el móvil mientras espero el autobús, así que perdona si me explico regular; llevo toda la semana liado con mil cosas y por fin tengo un rato tranquilo. revisa el diff de este código buscando problemas de rendimiento",
+   "expected": [
+    "code-review"
+   ],
+   "kind": "directo",
+   "variant": "contexto",
+   "source": 7
+  },
+  {
+   "query": "revisa el diff de este código buscando problemas de rendimiento\n<pasted_content>\nActa de la reunión de vecinos del 3 de marzo. Asistentes: 14. Se aprueba cambiar la iluminación del portal y revisar el presupuesto del ascensor. Próxima reunión en abril. Ruegos y preguntas: ninguno.\n</pasted_content>",
+   "expected": [
+    "code-review"
+   ],
+   "kind": "directo",
+   "variant": "pegado",
+   "source": 7
+  },
+  {
+   "query": "haz una investigación del mercado de patinetes eléctricos en España con varias fuentes y entrégame un informe\n\n2026-03-02 10:14:07,881 INFO  worker started pid=4412\n2026-03-02 10:14:08,002 WARN  cache miss key=session:91\n2026-03-02 10:14:09,517 ERROR request failed status=500 path=/api/v1/orders",
+   "expected": [
+    "deep-research"
+   ],
+   "kind": "directo",
+   "variant": "traceback",
+   "source": 8
+  },
+  {
+   "query": "Antes de nada, gracias por la paciencia de siempre; hoy ha sido un día largo, hace un frío tremendo y acabo de llegar a casa después de pasar la tarde con mi familia. haz una investigación del mercado de patinetes eléctricos en España con varias fuentes y entrégame un informe",
+   "expected": [
+    "deep-research"
+   ],
+   "kind": "directo",
+   "variant": "contexto",
+   "source": 8
+  },
+  {
+   "query": "haz una investigación del mercado de patinetes eléctricos en España con varias fuentes y entrégame un informe\n<pasted_content>\nLista de la compra: leche, pan, huevos, tomates, aceite de oliva, arroz, café, papel de cocina, detergente. Recordar pasar por la farmacia antes de las ocho.\n</pasted_content>",
+   "expected": [
+    "deep-research"
+   ],
+   "kind": "directo",
+   "variant": "pegado",
+   "source": 8
+  },
+  {
+   "query": "tengo este stack trace y no sé de dónde sale el error, ayúdame a diagnosticarlo\n\nTypeError: Cannot read properties of undefined (reading 'map')\n    at render (webpack:///src/List.jsx:12:18)\n    at mountComponent (react-dom.development.js:1450:7)",
+   "expected": [
+    "debug"
+   ],
+   "kind": "directo",
+   "variant": "traceback",
+   "source": 9
+  },
+  {
+   "query": "Bueno, a ver cómo lo cuento: es lunes, el café se me ha quedado frío y tengo la mesa llena de papeles, pero quiero quitarme esto de encima cuanto antes. tengo este stack trace y no sé de dónde sale el error, ayúdame a diagnosticarlo",
+   "expected": [
+    "debug"
+   ],
+   "kind": "directo",
+   "variant": "contexto",
+   "source": 9
+  },
+  {
+   "query": "tengo este stack trace y no sé de dónde sale el error, ayúdame a diagnosticarlo\n<pasted_content>\nHorario del gimnasio: lunes a viernes de 7:00 a 22:00, sábados de 9:00 a 14:00. Las clases de spinning se reservan en recepción con un día de antelación.\n</pasted_content>",
+   "expected": [
+    "debug"
+   ],
+   "kind": "directo",
+   "variant": "pegado",
+   "source": 9
+  },
+  {
+   "query": "el fallo solo sale a veces, ayúdame a reproducirlo y aislarlo\n\nTraceback (most recent call last):\n  File \"/srv/app/main.py\", line 42, in <module>\n    run()\n  File \"/srv/app/main.py\", line 17, in run\n    total = items[3]\nIndexError: list index out of range",
+   "expected": [
+    "debug"
+   ],
+   "kind": "directo",
+   "variant": "traceback",
+   "source": 10
+  },
+  {
+   "query": "Te escribo desde el móvil mientras espero el autobús, así que perdona si me explico regular; llevo toda la semana liado con mil cosas y por fin tengo un rato tranquilo. el fallo solo sale a veces, ayúdame a reproducirlo y aislarlo",
+   "expected": [
+    "debug"
+   ],
+   "kind": "directo",
+   "variant": "contexto",
+   "source": 10
+  },
+  {
+   "query": "el fallo solo sale a veces, ayúdame a reproducirlo y aislarlo\n<pasted_content>\nActa de la reunión de vecinos del 3 de marzo. Asistentes: 14. Se aprueba cambiar la iluminación del portal y revisar el presupuesto del ascensor. Próxima reunión en abril. Ruegos y preguntas: ninguno.\n</pasted_content>",
+   "expected": [
+    "debug"
+   ],
+   "kind": "directo",
+   "variant": "pegado",
+   "source": 10
+  },
+  {
+   "query": "mañana tengo la prueba final de química orgánica y no me sé nada, ¿me ayudas a prepararla?\n\n2026-03-02 10:14:07,881 INFO  worker started pid=4412\n2026-03-02 10:14:08,002 WARN  cache miss key=session:91\n2026-03-02 10:14:09,517 ERROR request failed status=500 path=/api/v1/orders",
+   "expected": [
+    "estudio-a-medida"
+   ],
+   "kind": "sinonimo",
+   "variant": "traceback",
+   "source": 11
+  },
+  {
+   "query": "Antes de nada, gracias por la paciencia de siempre; hoy ha sido un día largo, hace un frío tremendo y acabo de llegar a casa después de pasar la tarde con mi familia. mañana tengo la prueba final de química orgánica y no me sé nada, ¿me ayudas a prepararla?",
+   "expected": [
+    "estudio-a-medida"
+   ],
+   "kind": "sinonimo",
+   "variant": "contexto",
+   "source": 11
+  },
+  {
+   "query": "mañana tengo la prueba final de química orgánica y no me sé nada, ¿me ayudas a prepararla?\n<pasted_content>\nLista de la compra: leche, pan, huevos, tomates, aceite de oliva, arroz, café, papel de cocina, detergente. Recordar pasar por la farmacia antes de las ocho.\n</pasted_content>",
+   "expected": [
+    "estudio-a-medida"
+   ],
+   "kind": "sinonimo",
+   "variant": "pegado",
+   "source": 11
+  },
+  {
+   "query": "quiero que me hagas preguntas tipo test sobre la Revolución Francesa para ver si me la sé\n\nTypeError: Cannot read properties of undefined (reading 'map')\n    at render (webpack:///src/List.jsx:12:18)\n    at mountComponent (react-dom.development.js:1450:7)",
+   "expected": [
+    "estudio-a-medida"
+   ],
+   "kind": "sinonimo",
+   "variant": "traceback",
+   "source": 12
+  },
+  {
+   "query": "Bueno, a ver cómo lo cuento: es lunes, el café se me ha quedado frío y tengo la mesa llena de papeles, pero quiero quitarme esto de encima cuanto antes. quiero que me hagas preguntas tipo test sobre la Revolución Francesa para ver si me la sé",
+   "expected": [
+    "estudio-a-medida"
+   ],
+   "kind": "sinonimo",
+   "variant": "contexto",
+   "source": 12
+  },
+  {
+   "query": "quiero que me hagas preguntas tipo test sobre la Revolución Francesa para ver si me la sé\n<pasted_content>\nHorario del gimnasio: lunes a viernes de 7:00 a 22:00, sábados de 9:00 a 14:00. Las clases de spinning se reservan en recepción con un día de antelación.\n</pasted_content>",
+   "expected": [
+    "estudio-a-medida"
+   ],
+   "kind": "sinonimo",
+   "variant": "pegado",
+   "source": 12
+  },
+  {
+   "query": "pasa mis apuntes de anatomía a algo que pueda memorizar en el bus\n\nTraceback (most recent call last):\n  File \"/srv/app/main.py\", line 42, in <module>\n    run()\n  File \"/srv/app/main.py\", line 17, in run\n    total = items[3]\nIndexError: list index out of range",
+   "expected": [
+    "estudio-a-medida"
+   ],
+   "kind": "sinonimo",
+   "variant": "traceback",
+   "source": 13
+  },
+  {
+   "query": "Te escribo desde el móvil mientras espero el autobús, así que perdona si me explico regular; llevo toda la semana liado con mil cosas y por fin tengo un rato tranquilo. pasa mis apuntes de anatomía a algo que pueda memorizar en el bus",
+   "expected": [
+    "estudio-a-medida"
+   ],
+   "kind": "sinonimo",
+   "variant": "contexto",
+   "source": 13
+  },
+  {
+   "query": "pasa mis apuntes de anatomía a algo que pueda memorizar en el bus\n<pasted_content>\nActa de la reunión de vecinos del 3 de marzo. Asistentes: 14. Se aprueba cambiar la iluminación del portal y revisar el presupuesto del ascensor. Próxima reunión en abril. Ruegos y preguntas: ninguno.\n</pasted_content>",
+   "expected": [
+    "estudio-a-medida"
+   ],
+   "kind": "sinonimo",
+   "variant": "pegado",
+   "source": 13
+  },
+  {
+   "query": "necesito que me ayudes a escribir las descripciones de producto de mi tienda online para que vendan más\n\n2026-03-02 10:14:07,881 INFO  worker started pid=4412\n2026-03-02 10:14:08,002 WARN  cache miss key=session:91\n2026-03-02 10:14:09,517 ERROR request failed status=500 path=/api/v1/orders",
+   "expected": [
+    "marca-marketing"
+   ],
+   "kind": "sinonimo",
+   "variant": "traceback",
+   "source": 14
+  },
+  {
+   "query": "Antes de nada, gracias por la paciencia de siempre; hoy ha sido un día largo, hace un frío tremendo y acabo de llegar a casa después de pasar la tarde con mi familia. necesito que me ayudes a escribir las descripciones de producto de mi tienda online para que vendan más",
+   "expected": [
+    "marca-marketing"
+   ],
+   "kind": "sinonimo",
+   "variant": "contexto",
+   "source": 14
+  },
+  {
+   "query": "necesito que me ayudes a escribir las descripciones de producto de mi tienda online para que vendan más\n<pasted_content>\nLista de la compra: leche, pan, huevos, tomates, aceite de oliva, arroz, café, papel de cocina, detergente. Recordar pasar por la farmacia antes de las ocho.\n</pasted_content>",
+   "expected": [
+    "marca-marketing"
+   ],
+   "kind": "sinonimo",
+   "variant": "pegado",
+   "source": 14
+  },
+  {
+   "query": "¿cómo describo lo que hace mi empresa en una sola frase que enganche en la web?\n\nTypeError: Cannot read properties of undefined (reading 'map')\n    at render (webpack:///src/List.jsx:12:18)\n    at mountComponent (react-dom.development.js:1450:7)",
+   "expected": [
+    "marca-marketing"
+   ],
+   "kind": "sinonimo",
+   "variant": "traceback",
+   "source": 15
+  },
+  {
+   "query": "Bueno, a ver cómo lo cuento: es lunes, el café se me ha quedado frío y tengo la mesa llena de papeles, pero quiero quitarme esto de encima cuanto antes. ¿cómo describo lo que hace mi empresa en una sola frase que enganche en la web?",
+   "expected": [
+    "marca-marketing"
+   ],
+   "kind": "sinonimo",
+   "variant": "contexto",
+   "source": 15
+  },
+  {
+   "query": "¿cómo describo lo que hace mi empresa en una sola frase que enganche en la web?\n<pasted_content>\nHorario del gimnasio: lunes a viernes de 7:00 a 22:00, sábados de 9:00 a 14:00. Las clases de spinning se reservan en recepción con un día de antelación.\n</pasted_content>",
+   "expected": [
+    "marca-marketing"
+   ],
+   "kind": "sinonimo",
+   "variant": "pegado",
+   "source": 15
+  },
+  {
+   "query": "dame ideas de publicaciones para Instagram de mi peluquería para todo el mes\n\nTraceback (most recent call last):\n  File \"/srv/app/main.py\", line 42, in <module>\n    run()\n  File \"/srv/app/main.py\", line 17, in run\n    total = items[3]\nIndexError: list index out of range",
+   "expected": [
+    "marca-marketing"
+   ],
+   "kind": "sinonimo",
+   "variant": "traceback",
+   "source": 16
+  },
+  {
+   "query": "Te escribo desde el móvil mientras espero el autobús, así que perdona si me explico regular; llevo toda la semana liado con mil cosas y por fin tengo un rato tranquilo. dame ideas de publicaciones para Instagram de mi peluquería para todo el mes",
+   "expected": [
+    "marca-marketing"
+   ],
+   "kind": "sinonimo",
+   "variant": "contexto",
+   "source": 16
+  },
+  {
+   "query": "dame ideas de publicaciones para Instagram de mi peluquería para todo el mes\n<pasted_content>\nActa de la reunión de vecinos del 3 de marzo. Asistentes: 14. Se aprueba cambiar la iluminación del portal y revisar el presupuesto del ascensor. Próxima reunión en abril. Ruegos y preguntas: ninguno.\n</pasted_content>",
+   "expected": [
+    "marca-marketing"
+   ],
+   "kind": "sinonimo",
+   "variant": "pegado",
+   "source": 16
+  },
+  {
+   "query": "quiero subir un clip vertical de 45 segundos explicando cómo hago pan de masa madre, ¿qué digo en cada parte?\n\n2026-03-02 10:14:07,881 INFO  worker started pid=4412\n2026-03-02 10:14:08,002 WARN  cache miss key=session:91\n2026-03-02 10:14:09,517 ERROR request failed status=500 path=/api/v1/orders",
+   "expected": [
+    "guiones-video"
+   ],
+   "kind": "sinonimo",
+   "variant": "traceback",
+   "source": 17
+  },
+  {
+   "query": "Antes de nada, gracias por la paciencia de siempre; hoy ha sido un día largo, hace un frío tremendo y acabo de llegar a casa después de pasar la tarde con mi familia. quiero subir un clip vertical de 45 segundos explicando cómo hago pan de masa madre, ¿qué digo en cada parte?",
+   "expected": [
+    "guiones-video"
+   ],
+   "kind": "sinonimo",
+   "variant": "contexto",
+   "source": 17
+  },
+  {
+   "query": "quiero subir un clip vertical de 45 segundos explicando cómo hago pan de masa madre, ¿qué digo en cada parte?\n<pasted_content>\nLista de la compra: leche, pan, huevos, tomates, aceite de oliva, arroz, café, papel de cocina, detergente. Recordar pasar por la farmacia antes de las ocho.\n</pasted_content>",
+   "expected": [
+    "guiones-video"
+   ],
+   "kind": "sinonimo",
+   "variant": "pegado",
+   "source": 17
+  },
+  {
+   "query": "cómo arranco mis clips para que la gente no deslice en los primeros 3 segundos\n\nTypeError: Cannot read properties of undefined (reading 'map')\n    at render (webpack:///src/List.jsx:12:18)\n    at mountComponent (react-dom.development.js:1450:7)",
+   "expected": [
+    "guiones-video"
+   ],
+   "kind": "sinonimo",
+   "variant": "traceback",
+   "source": 18
+  },
+  {
+   "query": "Bueno, a ver cómo lo cuento: es lunes, el café se me ha quedado frío y tengo la mesa llena de papeles, pero quiero quitarme esto de encima cuanto antes. cómo arranco mis clips para que la gente no deslice en los primeros 3 segundos",
+   "expected": [
+    "guiones-video"
+   ],
+   "kind": "sinonimo",
+   "variant": "contexto",
+   "source": 18
+  },
+  {
+   "query": "cómo arranco mis clips para que la gente no deslice en los primeros 3 segundos\n<pasted_content>\nHorario del gimnasio: lunes a viernes de 7:00 a 22:00, sábados de 9:00 a 14:00. Las clases de spinning se reservan en recepción con un día de antelación.\n</pasted_content>",
+   "expected": [
+    "guiones-video"
+   ],
+   "kind": "sinonimo",
+   "variant": "pegado",
+   "source": 18
+  },
+  {
+   "query": "échale un ojo a esta función antes de que la suba a main, a ver si se me escapa algo\n\nTraceback (most recent call last):\n  File \"/srv/app/main.py\", line 42, in <module>\n    run()\n  File \"/srv/app/main.py\", line 17, in run\n    total = items[3]\nIndexError: list index out of range",
+   "expected": [
+    "code-review"
+   ],
+   "kind": "sinonimo",
+   "variant": "traceback",
+   "source": 19
+  },
+  {
+   "query": "Te escribo desde el móvil mientras espero el autobús, así que perdona si me explico regular; llevo toda la semana liado con mil cosas y por fin tengo un rato tranquilo. échale un ojo a esta función antes de que la suba a main, a ver si se me escapa algo",
+   "expected": [
+    "code-review"
+   ],
+   "kind": "sinonimo",
+   "variant": "contexto",
+   "source": 19
+  },
+  {
+   "query": "échale un ojo a esta función antes de que la suba a main, a ver si se me escapa algo\n<pasted_content>\nActa de la reunión de vecinos del 3 de marzo. Asistentes: 14. Se aprueba cambiar la iluminación del portal y revisar el presupuesto del ascensor. Próxima reunión en abril. Ruegos y preguntas: ninguno.\n</pasted_content>",
+   "expected": [
+    "code-review"
+   ],
+   "kind": "sinonimo",
+   "variant": "pegado",
+   "source": 19
+  },
+  {
+   "query": "¿esta consulta a la base de datos con el input del usuario concatenado es peligrosa?\n\n2026-03-02 10:14:07,881 INFO  worker started pid=4412\n2026-03-02 10:14:08,002 WARN  cache miss key=session:91\n2026-03-02 10:14:09,517 ERROR request failed status=500 path=/api/v1/orders",
+   "expected": [
+    "code-review"
+   ],
+   "kind": "sinonimo",
+   "variant": "traceback",
+   "source": 20
+  },
+  {
+   "query": "Antes de nada, gracias por la paciencia de siempre; hoy ha sido un día largo, hace un frío tremendo y acabo de llegar a casa después de pasar la tarde con mi familia. ¿esta consulta a la base de datos con el input del usuario concatenado es peligrosa?",
+   "expected": [
+    "code-review"
+   ],
+   "kind": "sinonimo",
+   "variant": "contexto",
+   "source": 20
+  },
+  {
+   "query": "¿esta consulta a la base de datos con el input del usuario concatenado es peligrosa?\n<pasted_content>\nLista de la compra: leche, pan, huevos, tomates, aceite de oliva, arroz, café, papel de cocina, detergente. Recordar pasar por la farmacia antes de las ocho.\n</pasted_content>",
+   "expected": [
+    "code-review"
+   ],
+   "kind": "sinonimo",
+   "variant": "pegado",
+   "source": 20
+  },
+  {
+   "query": "quiero saber qué dice la literatura científica sobre el ayuno intermitente, contrastando varios artículos y papers\n\nTypeError: Cannot read properties of undefined (reading 'map')\n    at render (webpack:///src/List.jsx:12:18)\n    at mountComponent (react-dom.development.js:1450:7)",
+   "expected": [
+    "deep-research"
+   ],
+   "kind": "sinonimo",
+   "variant": "traceback",
+   "source": 21
+  },
+  {
+   "query": "Bueno, a ver cómo lo cuento: es lunes, el café se me ha quedado frío y tengo la mesa llena de papeles, pero quiero quitarme esto de encima cuanto antes. quiero saber qué dice la literatura científica sobre el ayuno intermitente, contrastando varios artículos y papers",
+   "expected": [
+    "deep-research"
+   ],
+   "kind": "sinonimo",
+   "variant": "contexto",
+   "source": 21
+  },
+  {
+   "query": "quiero saber qué dice la literatura científica sobre el ayuno intermitente, contrastando varios artículos y papers\n<pasted_content>\nHorario del gimnasio: lunes a viernes de 7:00 a 22:00, sábados de 9:00 a 14:00. Las clases de spinning se reservan en recepción con un día de antelación.\n</pasted_content>",
+   "expected": [
+    "deep-research"
+   ],
+   "kind": "sinonimo",
+   "variant": "pegado",
+   "source": 21
+  },
+  {
+   "query": "antes de montar mi negocio de comida vegana a domicilio, averigua quién más lo hace y cuánto cobran\n\nTraceback (most recent call last):\n  File \"/srv/app/main.py\", line 42, in <module>\n    run()\n  File \"/srv/app/main.py\", line 17, in run\n    total = items[3]\nIndexError: list index out of range",
+   "expected": [
+    "deep-research"
+   ],
+   "kind": "sinonimo",
+   "variant": "traceback",
+   "source": 22
+  },
+  {
+   "query": "Te escribo desde el móvil mientras espero el autobús, así que perdona si me explico regular; llevo toda la semana liado con mil cosas y por fin tengo un rato tranquilo. antes de montar mi negocio de comida vegana a domicilio, averigua quién más lo hace y cuánto cobran",
+   "expected": [
+    "deep-research"
+   ],
+   "kind": "sinonimo",
+   "variant": "contexto",
+   "source": 22
+  },
+  {
+   "query": "antes de montar mi negocio de comida vegana a domicilio, averigua quién más lo hace y cuánto cobran\n<pasted_content>\nActa de la reunión de vecinos del 3 de marzo. Asistentes: 14. Se aprueba cambiar la iluminación del portal y revisar el presupuesto del ascensor. Próxima reunión en abril. Ruegos y preguntas: ninguno.\n</pasted_content>",
+   "expected": [
+    "deep-research"
+   ],
+   "kind": "sinonimo",
+   "variant": "pegado",
+   "source": 22
+  },
+  {
+   "query": "la app se cierra sola al abrir la cámara en Android y no entiendo por qué\n\n2026-03-02 10:14:07,881 INFO  worker started pid=4412\n2026-03-02 10:14:08,002 WARN  cache miss key=session:91\n2026-03-02 10:14:09,517 ERROR request failed status=500 path=/api/v1/orders",
+   "expected": [
+    "debug"
+   ],
+   "kind": "sinonimo",
+   "variant": "traceback",
+   "source": 23
+  },
+  {
+   "query": "Antes de nada, gracias por la paciencia de siempre; hoy ha sido un día largo, hace un frío tremendo y acabo de llegar a casa después de pasar la tarde con mi familia. la app se cierra sola al abrir la cámara en Android y no entiendo por qué",
+   "expected": [
+    "debug"
+   ],
+   "kind": "sinonimo",
+   "variant": "contexto",
+   "source": 23
+  },
+  {
+   "query": "la app se cierra sola al abrir la cámara en Android y no entiendo por qué\n<pasted_content>\nLista de la compra: leche, pan, huevos, tomates, aceite de oliva, arroz, café, papel de cocina, detergente. Recordar pasar por la farmacia antes de las ocho.\n</pasted_content>",
+   "expected": [
+    "debug"
+   ],
+   "kind": "sinonimo",
+   "variant": "pegado",
+   "source": 23
+  },
+  {
+   "query": "el script me devuelve None cuando debería devolver una lista y llevo dos horas sin encontrar el motivo\n\nTypeError: Cannot read properties of undefined (reading 'map')\n    at render (webpack:///src/List.jsx:12:18)\n    at mountComponent (react-dom.development.js:1450:7)",
+   "expected": [
+    "debug"
+   ],
+   "kind": "sinonimo",
+   "variant": "traceback",
+   "source": 24
+  },
+  {
+   "query": "Bueno, a ver cómo lo cuento: es lunes, el café se me ha quedado frío y tengo la mesa llena de papeles, pero quiero quitarme esto de encima cuanto antes. el script me devuelve None cuando debería devolver una lista y llevo dos horas sin encontrar el motivo",
+   "expected": [
+    "debug"
+   ],
+   "kind": "sinonimo",
+   "variant": "contexto",
+   "source": 24
+  },
+  {
+   "query": "el script me devuelve None cuando debería devolver una lista y llevo dos horas sin encontrar el motivo\n<pasted_content>\nHorario del gimnasio: lunes a viernes de 7:00 a 22:00, sábados de 9:00 a 14:00. Las clases de spinning se reservan en recepción con un día de antelación.\n</pasted_content>",
+   "expected": [
+    "debug"
+   ],
+   "kind": "sinonimo",
+   "variant": "pegado",
+   "source": 24
+  },
+  {
+   "query": "investiga qué tipo de contenido funciona mejor en TikTok para marcas de cosmética y luego escríbeme tres guiones\n\nTraceback (most recent call last):\n  File \"/srv/app/main.py\", line 42, in <module>\n    run()\n  File \"/srv/app/main.py\", line 17, in run\n    total = items[3]\nIndexError: list index out of range",
+   "expected": [
+    "deep-research",
+    "guiones-video"
+   ],
+   "kind": "multi",
+   "variant": "traceback",
+   "source": 25
+  },
+  {
+   "query": "Te escribo desde el móvil mientras espero el autobús, así que perdona si me explico regular; llevo toda la semana liado con mil cosas y por fin tengo un rato tranquilo. investiga qué tipo de contenido funciona mejor en TikTok para marcas de cosmética y luego escríbeme tres guiones",
+   "expected": [
+    "deep-research",
+    "guiones-video"
+   ],
+   "kind": "multi",
+   "variant": "contexto",
+   "source": 25
+  },
+  {
+   "query": "investiga qué tipo de contenido funciona mejor en TikTok para marcas de cosmética y luego escríbeme tres guiones\n<pasted_content>\nActa de la reunión de vecinos del 3 de marzo. Asistentes: 14. Se aprueba cambiar la iluminación del portal y revisar el presupuesto del ascensor. Próxima reunión en abril. Ruegos y preguntas: ninguno.\n</pasted_content>",
+   "expected": [
+    "deep-research",
+    "guiones-video"
+   ],
+   "kind": "multi",
+   "variant": "pegado",
+   "source": 25
+  },
+  {
+   "query": "me salta un error al hacer login y además quiero que revises si el código de autenticación es seguro\n\n2026-03-02 10:14:07,881 INFO  worker started pid=4412\n2026-03-02 10:14:08,002 WARN  cache miss key=session:91\n2026-03-02 10:14:09,517 ERROR request failed status=500 path=/api/v1/orders",
+   "expected": [
+    "debug",
+    "code-review"
+   ],
+   "kind": "multi",
+   "variant": "traceback",
+   "source": 26
+  },
+  {
+   "query": "Antes de nada, gracias por la paciencia de siempre; hoy ha sido un día largo, hace un frío tremendo y acabo de llegar a casa después de pasar la tarde con mi familia. me salta un error al hacer login y además quiero que revises si el código de autenticación es seguro",
+   "expected": [
+    "debug",
+    "code-review"
+   ],
+   "kind": "multi",
+   "variant": "contexto",
+   "source": 26
+  },
+  {
+   "query": "me salta un error al hacer login y además quiero que revises si el código de autenticación es seguro\n<pasted_content>\nLista de la compra: leche, pan, huevos, tomates, aceite de oliva, arroz, café, papel de cocina, detergente. Recordar pasar por la farmacia antes de las ocho.\n</pasted_content>",
+   "expected": [
+    "debug",
+    "code-review"
+   ],
+   "kind": "multi",
+   "variant": "pegado",
+   "source": 26
+  },
+  {
+   "query": "para el lanzamiento del producto nuevo necesito los textos del email y un guion para un reel promocional\n\nTypeError: Cannot read properties of undefined (reading 'map')\n    at render (webpack:///src/List.jsx:12:18)\n    at mountComponent (react-dom.development.js:1450:7)",
+   "expected": [
+    "marca-marketing",
+    "guiones-video"
+   ],
+   "kind": "multi",
+   "variant": "traceback",
+   "source": 27
+  },
+  {
+   "query": "Bueno, a ver cómo lo cuento: es lunes, el café se me ha quedado frío y tengo la mesa llena de papeles, pero quiero quitarme esto de encima cuanto antes. para el lanzamiento del producto nuevo necesito los textos del email y un guion para un reel promocional",
+   "expected": [
+    "marca-marketing",
+    "guiones-video"
+   ],
+   "kind": "multi",
+   "variant": "contexto",
+   "source": 27
+  },
+  {
+   "query": "para el lanzamiento del producto nuevo necesito los textos del email y un guion para un reel promocional\n<pasted_content>\nHorario del gimnasio: lunes a viernes de 7:00 a 22:00, sábados de 9:00 a 14:00. Las clases de spinning se reservan en recepción con un día de antelación.\n</pasted_content>",
+   "expected": [
+    "marca-marketing",
+    "guiones-video"
+   ],
+   "kind": "multi",
+   "variant": "pegado",
+   "source": 27
+  },
+  {
+   "query": "analiza la competencia en apps de meditación y con eso redacta el copy de nuestra landing\n\nTraceback (most recent call last):\n  File \"/srv/app/main.py\", line 42, in <module>\n    run()\n  File \"/srv/app/main.py\", line 17, in run\n    total = items[3]\nIndexError: list index out of range",
+   "expected": [
+    "deep-research",
+    "marca-marketing"
+   ],
+   "kind": "multi",
+   "variant": "traceback",
+   "source": 28
+  },
+  {
+   "query": "Te escribo desde el móvil mientras espero el autobús, así que perdona si me explico regular; llevo toda la semana liado con mil cosas y por fin tengo un rato tranquilo. analiza la competencia en apps de meditación y con eso redacta el copy de nuestra landing",
+   "expected": [
+    "deep-research",
+    "marca-marketing"
+   ],
+   "kind": "multi",
+   "variant": "contexto",
+   "source": 28
+  },
+  {
+   "query": "analiza la competencia en apps de meditación y con eso redacta el copy de nuestra landing\n<pasted_content>\nActa de la reunión de vecinos del 3 de marzo. Asistentes: 14. Se aprueba cambiar la iluminación del portal y revisar el presupuesto del ascensor. Próxima reunión en abril. Ruegos y preguntas: ninguno.\n</pasted_content>",
+   "expected": [
+    "deep-research",
+    "marca-marketing"
+   ],
+   "kind": "multi",
+   "variant": "pegado",
+   "source": 28
+  },
+  {
+   "query": "hazme un resumen de este paper sobre transformers para estudiarlo y búscame otras fuentes que lo comparen con las RNN\n\n2026-03-02 10:14:07,881 INFO  worker started pid=4412\n2026-03-02 10:14:08,002 WARN  cache miss key=session:91\n2026-03-02 10:14:09,517 ERROR request failed status=500 path=/api/v1/orders",
+   "expected": [
+    "estudio-a-medida",
+    "deep-research"
+   ],
+   "kind": "multi",
+   "variant": "traceback",
+   "source": 29
+  },
+  {
+   "query": "Antes de nada, gracias por la paciencia de siempre; hoy ha sido un día largo, hace un frío tremendo y acabo de llegar a casa después de pasar la tarde con mi familia. hazme un resumen de este paper sobre transformers para estudiarlo y búscame otras fuentes que lo comparen con las RNN",
+   "expected": [
+    "estudio-a-medida",
+    "deep-research"
+   ],
+   "kind": "multi",
+   "variant": "contexto",
+   "source": 29
+  },
+  {
+   "query": "hazme un resumen de este paper sobre transformers para estudiarlo y búscame otras fuentes que lo comparen con las RNN\n<pasted_content>\nLista de la compra: leche, pan, huevos, tomates, aceite de oliva, arroz, café, papel de cocina, detergente. Recordar pasar por la farmacia antes de las ocho.\n</pasted_content>",
+   "expected": [
+    "estudio-a-medida",
+    "deep-research"
+   ],
+   "kind": "multi",
+   "variant": "pegado",
+   "source": 29
+  },
+  {
+   "query": "convierte el tema del ciclo del agua en un short educativo de 60 segundos y unas tarjetas de repaso para mis alumnos\n\nTypeError: Cannot read properties of undefined (reading 'map')\n    at render (webpack:///src/List.jsx:12:18)\n    at mountComponent (react-dom.development.js:1450:7)",
+   "expected": [
+    "guiones-video",
+    "estudio-a-medida"
+   ],
+   "kind": "multi",
+   "variant": "traceback",
+   "source": 30
+  },
+  {
+   "query": "Bueno, a ver cómo lo cuento: es lunes, el café se me ha quedado frío y tengo la mesa llena de papeles, pero quiero quitarme esto de encima cuanto antes. convierte el tema del ciclo del agua en un short educativo de 60 segundos y unas tarjetas de repaso para mis alumnos",
+   "expected": [
+    "guiones-video",
+    "estudio-a-medida"
+   ],
+   "kind": "multi",
+   "variant": "contexto",
+   "source": 30
+  },
+  {
+   "query": "convierte el tema del ciclo del agua en un short educativo de 60 segundos y unas tarjetas de repaso para mis alumnos\n<pasted_content>\nHorario del gimnasio: lunes a viernes de 7:00 a 22:00, sábados de 9:00 a 14:00. Las clases de spinning se reservan en recepción con un día de antelación.\n</pasted_content>",
+   "expected": [
+    "guiones-video",
+    "estudio-a-medida"
+   ],
+   "kind": "multi",
+   "variant": "pegado",
+   "source": 30
+  },
+  {
+   "query": "can you look over my PR? I think there's a race condition in the cache layer\n\nTraceback (most recent call last):\n  File \"/srv/app/main.py\", line 42, in <module>\n    run()\n  File \"/srv/app/main.py\", line 17, in run\n    total = items[3]\nIndexError: list index out of range",
+   "expected": [
+    "code-review"
+   ],
+   "kind": "ingles",
+   "variant": "traceback",
+   "source": 31
+  },
+  {
+   "query": "Te escribo desde el móvil mientras espero el autobús, así que perdona si me explico regular; llevo toda la semana liado con mil cosas y por fin tengo un rato tranquilo. can you look over my PR? I think there's a race condition in the cache layer",
+   "expected": [
+    "code-review"
+   ],
+   "kind": "ingles",
+   "variant": "contexto",
+   "source": 31
+  },
+  {
+   "query": "can you look over my PR? I think there's a race condition in the cache layer\n<pasted_content>\nActa de la reunión de vecinos del 3 de marzo. Asistentes: 14. Se aprueba cambiar la iluminación del portal y revisar el presupuesto del ascensor. Próxima reunión en abril. Ruegos y preguntas: ninguno.\n</pasted_content>",
+   "expected": [
+    "code-review"
+   ],
+   "kind": "ingles",
+   "variant": "pegado",
+   "source": 31
+  },
+  {
+   "query": "write a script for a 15-second Instagram clip about our new sneakers, something that hooks people fast\n\n2026-03-02 10:14:07,881 INFO  worker started pid=4412\n2026-03-02 10:14:08,002 WARN  cache miss key=session:91\n2026-03-02 10:14:09,517 ERROR request failed status=500 path=/api/v1/orders",
+   "expected": [
+    "guiones-video"
+   ],
+   "kind": "ingles",
+   "variant": "traceback",
+   "source": 32
+  },
+  {
+   "query": "Antes de nada, gracias por la paciencia de siempre; hoy ha sido un día largo, hace un frío tremendo y acabo de llegar a casa después de pasar la tarde con mi familia. write a script for a 15-second Instagram clip about our new sneakers, something that hooks people fast",
+   "expected": [
+    "guiones-video"
+   ],
+   "kind": "ingles",
+   "variant": "contexto",
+   "source": 32
+  },
+  {
+   "query": "write a script for a 15-second Instagram clip about our new sneakers, something that hooks people fast\n<pasted_content>\nLista de la compra: leche, pan, huevos, tomates, aceite de oliva, arroz, café, papel de cocina, detergente. Recordar pasar por la farmacia antes de las ocho.\n</pasted_content>",
+   "expected": [
+    "guiones-video"
+   ],
+   "kind": "ingles",
+   "variant": "pegado",
+   "source": 32
+  },
+  {
+   "query": "I keep getting 'TypeError: undefined is not a function' in production but it never happens locally\n\nTypeError: Cannot read properties of undefined (reading 'map')\n    at render (webpack:///src/List.jsx:12:18)\n    at mountComponent (react-dom.development.js:1450:7)",
+   "expected": [
+    "debug"
+   ],
+   "kind": "ingles",
+   "variant": "traceback",
+   "source": 33
+  },
+  {
+   "query": "Bueno, a ver cómo lo cuento: es lunes, el café se me ha quedado frío y tengo la mesa llena de papeles, pero quiero quitarme esto de encima cuanto antes. I keep getting 'TypeError: undefined is not a function' in production but it never happens locally",
+   "expected": [
+    "debug"
+   ],
+   "kind": "ingles",
+   "variant": "contexto",
+   "source": 33
+  },
+  {
+   "query": "I keep getting 'TypeError: undefined is not a function' in production but it never happens locally\n<pasted_content>\nHorario del gimnasio: lunes a viernes de 7:00 a 22:00, sábados de 9:00 a 14:00. Las clases de spinning se reservan en recepción con un día de antelación.\n</pasted_content>",
+   "expected": [
+    "debug"
+   ],
+   "kind": "ingles",
+   "variant": "pegado",
+   "source": 33
+  },
+  {
+   "query": "can you make me a one-page cheat sheet for my statistics midterm?\n\nTraceback (most recent call last):\n  File \"/srv/app/main.py\", line 42, in <module>\n    run()\n  File \"/srv/app/main.py\", line 17, in run\n    total = items[3]\nIndexError: list index out of range",
+   "expected": [
+    "estudio-a-medida"
+   ],
+   "kind": "ingles",
+   "variant": "traceback",
+   "source": 34
+  },
+  {
+   "query": "Te escribo desde el móvil mientras espero el autobús, así que perdona si me explico regular; llevo toda la semana liado con mil cosas y por fin tengo un rato tranquilo. can you make me a one-page cheat sheet for my statistics midterm?",
+   "expected": [
+    "estudio-a-medida"
+   ],
+   "kind": "ingles",
+   "variant": "contexto",
+   "source": 34
+  },
+  {
+   "query": "can you make me a one-page cheat sheet for my statistics midterm?\n<pasted_content>\nActa de la reunión de vecinos del 3 de marzo. Asistentes: 14. Se aprueba cambiar la iluminación del portal y revisar el presupuesto del ascensor. Próxima reunión en abril. Ruegos y preguntas: ninguno.\n</pasted_content>",
+   "expected": [
+    "estudio-a-medida"
+   ],
+   "kind": "ingles",
+   "variant": "pegado",
+   "source": 34
+  },
+  {
+   "query": "dig into the plant-based protein market in the EU and give me a report with sources\n\n2026-03-02 10:14:07,881 INFO  worker started pid=4412\n2026-03-02 10:14:08,002 WARN  cache miss key=session:91\n2026-03-02 10:14:09,517 ERROR request failed status=500 path=/api/v1/orders",
+   "expected": [
+    "deep-research"
+   ],
+   "kind": "ingles",
+   "variant": "traceback",
+   "source": 35
+  },
+  {
+   "query": "Antes de nada, gracias por la paciencia de siempre; hoy ha sido un día largo, hace un frío tremendo y acabo de llegar a casa después de pasar la tarde con mi familia. dig into the plant-based protein market in the EU and give me a report with sources",
+   "expected": [
+    "deep-research"
+   ],
+   "kind": "ingles",
+   "variant": "contexto",
+   "source": 35
+  },
+  {
+   "query": "dig into the plant-based protein market in the EU and give me a report with sources\n<pasted_content>\nLista de la compra: leche, pan, huevos, tomates, aceite de oliva, arroz, café, papel de cocina, detergente. Recordar pasar por la farmacia antes de las ocho.\n</pasted_content>",
+   "expected": [
+    "deep-research"
+   ],
+   "kind": "ingles",
+   "variant": "pegado",
+   "source": 35
+  },
+  {
+   "query": "need a catchy tagline and a launch newsletter for my SaaS\n\nTypeError: Cannot read properties of undefined (reading 'map')\n    at render (webpack:///src/List.jsx:12:18)\n    at mountComponent (react-dom.development.js:1450:7)",
+   "expected": [
+    "marca-marketing"
+   ],
+   "kind": "ingles",
+   "variant": "traceback",
+   "source": 36
+  },
+  {
+   "query": "Bueno, a ver cómo lo cuento: es lunes, el café se me ha quedado frío y tengo la mesa llena de papeles, pero quiero quitarme esto de encima cuanto antes. need a catchy tagline and a launch newsletter for my SaaS",
+   "expected": [
+    "marca-marketing"
+   ],
+   "kind": "ingles",
+   "variant": "contexto",
+   "source": 36
+  },
+  {
+   "query": "need a catchy tagline and a launch newsletter for my SaaS\n<pasted_content>\nHorario del gimnasio: lunes a viernes de 7:00 a 22:00, sábados de 9:00 a 14:00. Las clases de spinning se reservan en recepción con un día de antelación.\n</pasted_content>",
+   "expected": [
+    "marca-marketing"
+   ],
+   "kind": "ingles",
+   "variant": "pegado",
+   "source": 36
+  },
+  {
+   "query": "porfa ayudame con el parcial de mate q no entiendo nada de las derivadas\n\nTraceback (most recent call last):\n  File \"/srv/app/main.py\", line 42, in <module>\n    run()\n  File \"/srv/app/main.py\", line 17, in run\n    total = items[3]\nIndexError: list index out of range",
+   "expected": [
+    "estudio-a-medida"
+   ],
+   "kind": "typo",
+   "variant": "traceback",
+   "source": 37
+  },
+  {
+   "query": "Te escribo desde el móvil mientras espero el autobús, así que perdona si me explico regular; llevo toda la semana liado con mil cosas y por fin tengo un rato tranquilo. porfa ayudame con el parcial de mate q no entiendo nada de las derivadas",
+   "expected": [
+    "estudio-a-medida"
+   ],
+   "kind": "typo",
+   "variant": "contexto",
+   "source": 37
+  },
+  {
+   "query": "porfa ayudame con el parcial de mate q no entiendo nada de las derivadas\n<pasted_content>\nActa de la reunión de vecinos del 3 de marzo. Asistentes: 14. Se aprueba cambiar la iluminación del portal y revisar el presupuesto del ascensor. Próxima reunión en abril. Ruegos y preguntas: ninguno.\n</pasted_content>",
+   "expected": [
+    "estudio-a-medida"
+   ],
+   "kind": "typo",
+   "variant": "pegado",
+   "source": 37
+  },
+  {
+   "query": "nesesito un gion pa un tiktok de mi tienda de ropa q se haga biral\n\n2026-03-02 10:14:07,881 INFO  worker started pid=4412\n2026-03-02 10:14:08,002 WARN  cache miss key=session:91\n2026-03-02 10:14:09,517 ERROR request failed status=500 path=/api/v1/orders",
+   "expected": [
+    "guiones-video"
+   ],
+   "kind": "typo",
+   "variant": "traceback",
+   "source": 38
+  },
+  {
+   "query": "Antes de nada, gracias por la paciencia de siempre; hoy ha sido un día largo, hace un frío tremendo y acabo de llegar a casa después de pasar la tarde con mi familia. nesesito un gion pa un tiktok de mi tienda de ropa q se haga biral",
+   "expected": [
+    "guiones-video"
+   ],
+   "kind": "typo",
+   "variant": "contexto",
+   "source": 38
+  },
+  {
+   "query": "nesesito un gion pa un tiktok de mi tienda de ropa q se haga biral\n<pasted_content>\nLista de la compra: leche, pan, huevos, tomates, aceite de oliva, arroz, café, papel de cocina, detergente. Recordar pasar por la farmacia antes de las ocho.\n</pasted_content>",
+   "expected": [
+    "guiones-video"
+   ],
+   "kind": "typo",
+   "variant": "pegado",
+   "source": 38
+  },
+  {
+   "query": "me peta el server cada vez q hago deploy, mira el log porfa\n\nTypeError: Cannot read properties of undefined (reading 'map')\n    at render (webpack:///src/List.jsx:12:18)\n    at mountComponent (react-dom.development.js:1450:7)",
+   "expected": [
+    "debug"
+   ],
+   "kind": "typo",
+   "variant": "traceback",
+   "source": 39
+  },
+  {
+   "query": "Bueno, a ver cómo lo cuento: es lunes, el café se me ha quedado frío y tengo la mesa llena de papeles, pero quiero quitarme esto de encima cuanto antes. me peta el server cada vez q hago deploy, mira el log porfa",
+   "expected": [
+    "debug"
+   ],
+   "kind": "typo",
+   "variant": "contexto",
+   "source": 39
+  },
+  {
+   "query": "me peta el server cada vez q hago deploy, mira el log porfa\n<pasted_content>\nHorario del gimnasio: lunes a viernes de 7:00 a 22:00, sábados de 9:00 a 14:00. Las clases de spinning se reservan en recepción con un día de antelación.\n</pasted_content>",
+   "expected": [
+    "debug"
+   ],
+   "kind": "typo",
+   "variant": "pegado",
+   "source": 39
+  },
+  {
+   "query": "hazme un review del codigo de mi api antes de pushear, q no quiero liarla\n\nTraceback (most recent call last):\n  File \"/srv/app/main.py\", line 42, in <module>\n    run()\n  File \"/srv/app/main.py\", line 17, in run\n    total = items[3]\nIndexError: list index out of range",
+   "expected": [
+    "code-review"
+   ],
+   "kind": "typo",
+   "variant": "traceback",
+   "source": 40
+  },
+  {
+   "query": "Te escribo desde el móvil mientras espero el autobús, así que perdona si me explico regular; llevo toda la semana liado con mil cosas y por fin tengo un rato tranquilo. hazme un review del codigo de mi api antes de pushear, q no quiero liarla",
+   "expected": [
+    "code-review"
+   ],
+   "kind": "typo",
+   "variant": "contexto",
+   "source": 40
+  },
+  {
+   "query": "hazme un review del codigo de mi api antes de pushear, q no quiero liarla\n<pasted_content>\nActa de la reunión de vecinos del 3 de marzo. Asistentes: 14. Se aprueba cambiar la iluminación del portal y revisar el presupuesto del ascensor. Próxima reunión en abril. Ruegos y preguntas: ninguno.\n</pasted_content>",
+   "expected": [
+    "code-review"
+   ],
+   "kind": "typo",
+   "variant": "pegado",
+   "source": 40
+  },
+  {
+   "query": "kiero mas likes y followers en insta pa mi negocio de velas, q posteo??\n\n2026-03-02 10:14:07,881 INFO  worker started pid=4412\n2026-03-02 10:14:08,002 WARN  cache miss key=session:91\n2026-03-02 10:14:09,517 ERROR request failed status=500 path=/api/v1/orders",
+   "expected": [
+    "marca-marketing"
+   ],
+   "kind": "typo",
+   "variant": "traceback",
+   "source": 41
+  },
+  {
+   "query": "Antes de nada, gracias por la paciencia de siempre; hoy ha sido un día largo, hace un frío tremendo y acabo de llegar a casa después de pasar la tarde con mi familia. kiero mas likes y followers en insta pa mi negocio de velas, q posteo??",
+   "expected": [
+    "marca-marketing"
+   ],
+   "kind": "typo",
+   "variant": "contexto",
+   "source": 41
+  },
+  {
+   "query": "kiero mas likes y followers en insta pa mi negocio de velas, q posteo??\n<pasted_content>\nLista de la compra: leche, pan, huevos, tomates, aceite de oliva, arroz, café, papel de cocina, detergente. Recordar pasar por la farmacia antes de las ocho.\n</pasted_content>",
+   "expected": [
+    "marca-marketing"
+   ],
+   "kind": "typo",
+   "variant": "pegado",
+   "source": 41
+  },
+  {
+   "query": "investigame q onda con los coches electricos en mexico, q marcas venden mas y como va la cosa\n\nTypeError: Cannot read properties of undefined (reading 'map')\n    at render (webpack:///src/List.jsx:12:18)\n    at mountComponent (react-dom.development.js:1450:7)",
+   "expected": [
+    "deep-research"
+   ],
+   "kind": "typo",
+   "variant": "traceback",
+   "source": 42
+  },
+  {
+   "query": "Bueno, a ver cómo lo cuento: es lunes, el café se me ha quedado frío y tengo la mesa llena de papeles, pero quiero quitarme esto de encima cuanto antes. investigame q onda con los coches electricos en mexico, q marcas venden mas y como va la cosa",
+   "expected": [
+    "deep-research"
+   ],
+   "kind": "typo",
+   "variant": "contexto",
+   "source": 42
+  },
+  {
+   "query": "investigame q onda con los coches electricos en mexico, q marcas venden mas y como va la cosa\n<pasted_content>\nHorario del gimnasio: lunes a viernes de 7:00 a 22:00, sábados de 9:00 a 14:00. Las clases de spinning se reservan en recepción con un día de antelación.\n</pasted_content>",
+   "expected": [
+    "deep-research"
+   ],
+   "kind": "typo",
+   "variant": "pegado",
+   "source": 42
+  },
+  {
+   "query": "hola, ¿qué tal estás?\n\nTraceback (most recent call last):\n  File \"/srv/app/main.py\", line 42, in <module>\n    run()\n  File \"/srv/app/main.py\", line 17, in run\n    total = items[3]\nIndexError: list index out of range",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "traceback",
+   "source": 43
+  },
+  {
+   "query": "Te escribo desde el móvil mientras espero el autobús, así que perdona si me explico regular; llevo toda la semana liado con mil cosas y por fin tengo un rato tranquilo. hola, ¿qué tal estás?",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "contexto",
+   "source": 43
+  },
+  {
+   "query": "hola, ¿qué tal estás?\n<pasted_content>\nActa de la reunión de vecinos del 3 de marzo. Asistentes: 14. Se aprueba cambiar la iluminación del portal y revisar el presupuesto del ascensor. Próxima reunión en abril. Ruegos y preguntas: ninguno.\n</pasted_content>",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "pegado",
+   "source": 43
+  },
+  {
+   "query": "¿cuál es la capital de Australia?\n\n2026-03-02 10:14:07,881 INFO  worker started pid=4412\n2026-03-02 10:14:08,002 WARN  cache miss key=session:91\n2026-03-02 10:14:09,517 ERROR request failed status=500 path=/api/v1/orders",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "traceback",
+   "source": 44
+  },
+  {
+   "query": "Antes de nada, gracias por la paciencia de siempre; hoy ha sido un día largo, hace un frío tremendo y acabo de llegar a casa después de pasar la tarde con mi familia. ¿cuál es la capital de Australia?",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "contexto",
+   "source": 44
+  },
+  {
+   "query": "¿cuál es la capital de Australia?\n<pasted_content>\nLista de la compra: leche, pan, huevos, tomates, aceite de oliva, arroz, café, papel de cocina, detergente. Recordar pasar por la farmacia antes de las ocho.\n</pasted_content>",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "pegado",
+   "source": 44
+  },
+  {
+   "query": "gracias, eso era todo\n\nTypeError: Cannot read properties of undefined (reading 'map')\n    at render (webpack:///src/List.jsx:12:18)\n    at mountComponent (react-dom.development.js:1450:7)",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "traceback",
+   "source": 45
+  },
+  {
+   "query": "Bueno, a ver cómo lo cuento: es lunes, el café se me ha quedado frío y tengo la mesa llena de papeles, pero quiero quitarme esto de encima cuanto antes. gracias, eso era todo",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "contexto",
+   "source": 45
+  },
+  {
+   "query": "gracias, eso era todo\n<pasted_content>\nHorario del gimnasio: lunes a viernes de 7:00 a 22:00, sábados de 9:00 a 14:00. Las clases de spinning se reservan en recepción con un día de antelación.\n</pasted_content>",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "pegado",
+   "source": 45
+  },
+  {
+   "query": "recomiéndame una película de miedo para ver esta noche\n\nTraceback (most recent call last):\n  File \"/srv/app/main.py\", line 42, in <module>\n    run()\n  File \"/srv/app/main.py\", line 17, in run\n    total = items[3]\nIndexError: list index out of range",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "traceback",
+   "source": 46
+  },
+  {
+   "query": "Te escribo desde el móvil mientras espero el autobús, así que perdona si me explico regular; llevo toda la semana liado con mil cosas y por fin tengo un rato tranquilo. recomiéndame una película de miedo para ver esta noche",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "contexto",
+   "source": 46
+  },
+  {
+   "query": "recomiéndame una película de miedo para ver esta noche\n<pasted_content>\nActa de la reunión de vecinos del 3 de marzo. Asistentes: 14. Se aprueba cambiar la iluminación del portal y revisar el presupuesto del ascensor. Próxima reunión en abril. Ruegos y preguntas: ninguno.\n</pasted_content>",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "pegado",
+   "source": 46
+  },
+  {
+   "query": "dame una receta fácil de tortilla de patatas\n\n2026-03-02 10:14:07,881 INFO  worker started pid=4412\n2026-03-02 10:14:08,002 WARN  cache miss key=session:91\n2026-03-02 10:14:09,517 ERROR request failed status=500 path=/api/v1/orders",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "traceback",
+   "source": 47
+  },
+  {
+   "query": "Antes de nada, gracias por la paciencia de siempre; hoy ha sido un día largo, hace un frío tremendo y acabo de llegar a casa después de pasar la tarde con mi familia. dame una receta fácil de tortilla de patatas",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "contexto",
+   "source": 47
+  },
+  {
+   "query": "dame una receta fácil de tortilla de patatas\n<pasted_content>\nLista de la compra: leche, pan, huevos, tomates, aceite de oliva, arroz, café, papel de cocina, detergente. Recordar pasar por la farmacia antes de las ocho.\n</pasted_content>",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "pegado",
+   "source": 47
+  },
+  {
+   "query": "¿qué marca de zapatillas de running me recomiendas para pies planos?\n\nTypeError: Cannot read properties of undefined (reading 'map')\n    at render (webpack:///src/List.jsx:12:18)\n    at mountComponent (react-dom.development.js:1450:7)",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "traceback",
+   "source": 48
+  },
+  {
+   "query": "Bueno, a ver cómo lo cuento: es lunes, el café se me ha quedado frío y tengo la mesa llena de papeles, pero quiero quitarme esto de encima cuanto antes. ¿qué marca de zapatillas de running me recomiendas para pies planos?",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "contexto",
+   "source": 48
+  },
+  {
+   "query": "¿qué marca de zapatillas de running me recomiendas para pies planos?\n<pasted_content>\nHorario del gimnasio: lunes a viernes de 7:00 a 22:00, sábados de 9:00 a 14:00. Las clases de spinning se reservan en recepción con un día de antelación.\n</pasted_content>",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "pegado",
+   "source": 48
+  },
+  {
+   "query": "mi perro tiene un fallo renal, ¿qué pienso le puedo dar?\n\nTraceback (most recent call last):\n  File \"/srv/app/main.py\", line 42, in <module>\n    run()\n  File \"/srv/app/main.py\", line 17, in run\n    total = items[3]\nIndexError: list index out of range",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "traceback",
+   "source": 49
+  },
+  {
+   "query": "Te escribo desde el móvil mientras espero el autobús, así que perdona si me explico regular; llevo toda la semana liado con mil cosas y por fin tengo un rato tranquilo. mi perro tiene un fallo renal, ¿qué pienso le puedo dar?",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "contexto",
+   "source": 49
+  },
+  {
+   "query": "mi perro tiene un fallo renal, ¿qué pienso le puedo dar?\n<pasted_content>\nActa de la reunión de vecinos del 3 de marzo. Asistentes: 14. Se aprueba cambiar la iluminación del portal y revisar el presupuesto del ascensor. Próxima reunión en abril. Ruegos y preguntas: ninguno.\n</pasted_content>",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "pegado",
+   "source": 49
+  },
+  {
+   "query": "el mayor error de mi vida fue dejar la carrera, ¿crees que debería volver?\n\n2026-03-02 10:14:07,881 INFO  worker started pid=4412\n2026-03-02 10:14:08,002 WARN  cache miss key=session:91\n2026-03-02 10:14:09,517 ERROR request failed status=500 path=/api/v1/orders",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "traceback",
+   "source": 50
+  },
+  {
+   "query": "Antes de nada, gracias por la paciencia de siempre; hoy ha sido un día largo, hace un frío tremendo y acabo de llegar a casa después de pasar la tarde con mi familia. el mayor error de mi vida fue dejar la carrera, ¿crees que debería volver?",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "contexto",
+   "source": 50
+  },
+  {
+   "query": "el mayor error de mi vida fue dejar la carrera, ¿crees que debería volver?\n<pasted_content>\nLista de la compra: leche, pan, huevos, tomates, aceite de oliva, arroz, café, papel de cocina, detergente. Recordar pasar por la farmacia antes de las ocho.\n</pasted_content>",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "pegado",
+   "source": 50
+  },
+  {
+   "query": "¿cuál es la escena más famosa de Titanic?\n\nTypeError: Cannot read properties of undefined (reading 'map')\n    at render (webpack:///src/List.jsx:12:18)\n    at mountComponent (react-dom.development.js:1450:7)",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "traceback",
+   "source": 51
+  },
+  {
+   "query": "Bueno, a ver cómo lo cuento: es lunes, el café se me ha quedado frío y tengo la mesa llena de papeles, pero quiero quitarme esto de encima cuanto antes. ¿cuál es la escena más famosa de Titanic?",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "contexto",
+   "source": 51
+  },
+  {
+   "query": "¿cuál es la escena más famosa de Titanic?\n<pasted_content>\nHorario del gimnasio: lunes a viernes de 7:00 a 22:00, sábados de 9:00 a 14:00. Las clases de spinning se reservan en recepción con un día de antelación.\n</pasted_content>",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "pegado",
+   "source": 51
+  },
+  {
+   "query": "¿sabes cuál es el email de atención al cliente de Renfe?\n\nTraceback (most recent call last):\n  File \"/srv/app/main.py\", line 42, in <module>\n    run()\n  File \"/srv/app/main.py\", line 17, in run\n    total = items[3]\nIndexError: list index out of range",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "traceback",
+   "source": 52
+  },
+  {
+   "query": "Te escribo desde el móvil mientras espero el autobús, así que perdona si me explico regular; llevo toda la semana liado con mil cosas y por fin tengo un rato tranquilo. ¿sabes cuál es el email de atención al cliente de Renfe?",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "contexto",
+   "source": 52
+  },
+  {
+   "query": "¿sabes cuál es el email de atención al cliente de Renfe?\n<pasted_content>\nActa de la reunión de vecinos del 3 de marzo. Asistentes: 14. Se aprueba cambiar la iluminación del portal y revisar el presupuesto del ascensor. Próxima reunión en abril. Ruegos y preguntas: ninguno.\n</pasted_content>",
+   "expected": [],
+   "kind": "negativo",
+   "variant": "pegado",
+   "source": 52
+  },
+  {
+   "query": "mi web tarda muchísimo en cargar, ¿qué hago?\n\n2026-03-02 10:14:07,881 INFO  worker started pid=4412\n2026-03-02 10:14:08,002 WARN  cache miss key=session:91\n2026-03-02 10:14:09,517 ERROR request failed status=500 path=/api/v1/orders",
+   "expected": [
+    "debug",
+    "code-review"
+   ],
+   "kind": "ambiguo",
+   "variant": "traceback",
+   "source": 53
+  },
+  {
+   "query": "Antes de nada, gracias por la paciencia de siempre; hoy ha sido un día largo, hace un frío tremendo y acabo de llegar a casa después de pasar la tarde con mi familia. mi web tarda muchísimo en cargar, ¿qué hago?",
+   "expected": [
+    "debug",
+    "code-review"
+   ],
+   "kind": "ambiguo",
+   "variant": "contexto",
+   "source": 53
+  },
+  {
+   "query": "mi web tarda muchísimo en cargar, ¿qué hago?\n<pasted_content>\nLista de la compra: leche, pan, huevos, tomates, aceite de oliva, arroz, café, papel de cocina, detergente. Recordar pasar por la farmacia antes de las ocho.\n</pasted_content>",
+   "expected": [
+    "debug",
+    "code-review"
+   ],
+   "kind": "ambiguo",
+   "variant": "pegado",
+   "source": 53
+  },
+  {
+   "query": "ayúdame con mi canal de YouTube, no crece\n\nTypeError: Cannot read properties of undefined (reading 'map')\n    at render (webpack:///src/List.jsx:12:18)\n    at mountComponent (react-dom.development.js:1450:7)",
+   "expected": [
+    "marca-marketing",
+    "guiones-video"
+   ],
+   "kind": "ambiguo",
+   "variant": "traceback",
+   "source": 54
+  },
+  {
+   "query": "Bueno, a ver cómo lo cuento: es lunes, el café se me ha quedado frío y tengo la mesa llena de papeles, pero quiero quitarme esto de encima cuanto antes. ayúdame con mi canal de YouTube, no crece",
+   "expected": [
+    "marca-marketing",
+    "guiones-video"
+   ],
+   "kind": "ambiguo",
+   "variant": "contexto",
+   "source": 54
+  },
+  {
+   "query": "ayúdame con mi canal de YouTube, no crece\n<pasted_content>\nHorario del gimnasio: lunes a viernes de 7:00 a 22:00, sábados de 9:00 a 14:00. Las clases de spinning se reservan en recepción con un día de antelación.\n</pasted_content>",
+   "expected": [
+    "marca-marketing",
+    "guiones-video"
+   ],
+   "kind": "ambiguo",
+   "variant": "pegado",
+   "source": 54
+  },
+  {
+   "query": "esto no funciona y no sé por qué\n\nTraceback (most recent call last):\n  File \"/srv/app/main.py\", line 42, in <module>\n    run()\n  File \"/srv/app/main.py\", line 17, in run\n    total = items[3]\nIndexError: list index out of range",
+   "expected": [
+    "debug"
+   ],
+   "kind": "ambiguo",
+   "variant": "traceback",
+   "source": 55
+  },
+  {
+   "query": "Te escribo desde el móvil mientras espero el autobús, así que perdona si me explico regular; llevo toda la semana liado con mil cosas y por fin tengo un rato tranquilo. esto no funciona y no sé por qué",
+   "expected": [
+    "debug"
+   ],
+   "kind": "ambiguo",
+   "variant": "contexto",
+   "source": 55
+  },
+  {
+   "query": "esto no funciona y no sé por qué\n<pasted_content>\nActa de la reunión de vecinos del 3 de marzo. Asistentes: 14. Se aprueba cambiar la iluminación del portal y revisar el presupuesto del ascensor. Próxima reunión en abril. Ruegos y preguntas: ninguno.\n</pasted_content>",
+   "expected": [
+    "debug"
+   ],
+   "kind": "ambiguo",
+   "variant": "pegado",
+   "source": 55
+  },
+  {
+   "query": "mira este código a ver qué te parece\n\n2026-03-02 10:14:07,881 INFO  worker started pid=4412\n2026-03-02 10:14:08,002 WARN  cache miss key=session:91\n2026-03-02 10:14:09,517 ERROR request failed status=500 path=/api/v1/orders",
+   "expected": [
+    "code-review"
+   ],
+   "kind": "ambiguo",
+   "variant": "traceback",
+   "source": 56
+  },
+  {
+   "query": "Antes de nada, gracias por la paciencia de siempre; hoy ha sido un día largo, hace un frío tremendo y acabo de llegar a casa después de pasar la tarde con mi familia. mira este código a ver qué te parece",
+   "expected": [
+    "code-review"
+   ],
+   "kind": "ambiguo",
+   "variant": "contexto",
+   "source": 56
+  },
+  {
+   "query": "mira este código a ver qué te parece\n<pasted_content>\nLista de la compra: leche, pan, huevos, tomates, aceite de oliva, arroz, café, papel de cocina, detergente. Recordar pasar por la farmacia antes de las ocho.\n</pasted_content>",
+   "expected": [
+    "code-review"
+   ],
+   "kind": "ambiguo",
+   "variant": "pegado",
+   "source": 56
+  },
+  {
+   "query": "hazme un análisis de por qué han bajado las ventas este trimestre\n\nTypeError: Cannot read properties of undefined (reading 'map')\n    at render (webpack:///src/List.jsx:12:18)\n    at mountComponent (react-dom.development.js:1450:7)",
+   "expected": [
+    "deep-research",
+    "marca-marketing"
+   ],
+   "kind": "ambiguo",
+   "variant": "traceback",
+   "source": 57
+  },
+  {
+   "query": "Bueno, a ver cómo lo cuento: es lunes, el café se me ha quedado frío y tengo la mesa llena de papeles, pero quiero quitarme esto de encima cuanto antes. hazme un análisis de por qué han bajado las ventas este trimestre",
+   "expected": [
+    "deep-research",
+    "marca-marketing"
+   ],
+   "kind": "ambiguo",
+   "variant": "contexto",
+   "source": 57
+  },
+  {
+   "query": "hazme un análisis de por qué han bajado las ventas este trimestre\n<pasted_content>\nHorario del gimnasio: lunes a viernes de 7:00 a 22:00, sábados de 9:00 a 14:00. Las clases de spinning se reservan en recepción con un día de antelación.\n</pasted_content>",
+   "expected": [
+    "deep-research",
+    "marca-marketing"
+   ],
+   "kind": "ambiguo",
+   "variant": "pegado",
+   "source": 57
+  },
+  {
+   "query": "tengo que presentar un trabajo sobre el cambio climático la semana que viene\n\nTraceback (most recent call last):\n  File \"/srv/app/main.py\", line 42, in <module>\n    run()\n  File \"/srv/app/main.py\", line 17, in run\n    total = items[3]\nIndexError: list index out of range",
+   "expected": [
+    "deep-research",
+    "estudio-a-medida"
+   ],
+   "kind": "ambiguo",
+   "variant": "traceback",
+   "source": 58
+  },
+  {
+   "query": "Te escribo desde el móvil mientras espero el autobús, así que perdona si me explico regular; llevo toda la semana liado con mil cosas y por fin tengo un rato tranquilo. tengo que presentar un trabajo sobre el cambio climático la semana que viene",
+   "expected": [
+    "deep-research",
+    "estudio-a-medida"
+   ],
+   "kind": "ambiguo",
+   "variant": "contexto",
+   "source": 58
+  },
+  {
+   "query": "tengo que presentar un trabajo sobre el cambio climático la semana que viene\n<pasted_content>\nActa de la reunión de vecinos del 3 de marzo. Asistentes: 14. Se aprueba cambiar la iluminación del portal y revisar el presupuesto del ascensor. Próxima reunión en abril. Ruegos y preguntas: ninguno.\n</pasted_content>",
+   "expected": [
+    "deep-research",
+    "estudio-a-medida"
+   ],
+   "kind": "ambiguo",
+   "variant": "pegado",
+   "source": 58
+  },
+  {
+   "query": "quiero que mi negocio se vea más profesional en internet\n\n2026-03-02 10:14:07,881 INFO  worker started pid=4412\n2026-03-02 10:14:08,002 WARN  cache miss key=session:91\n2026-03-02 10:14:09,517 ERROR request failed status=500 path=/api/v1/orders",
+   "expected": [
+    "marca-marketing"
+   ],
+   "kind": "ambiguo",
+   "variant": "traceback",
+   "source": 59
+  },
+  {
+   "query": "Antes de nada, gracias por la paciencia de siempre; hoy ha sido un día largo, hace un frío tremendo y acabo de llegar a casa después de pasar la tarde con mi familia. quiero que mi negocio se vea más profesional en internet",
+   "expected": [
+    "marca-marketing"
+   ],
+   "kind": "ambiguo",
+   "variant": "contexto",
+   "source": 59
+  },
+  {
+   "query": "quiero que mi negocio se vea más profesional en internet\n<pasted_content>\nLista de la compra: leche, pan, huevos, tomates, aceite de oliva, arroz, café, papel de cocina, detergente. Recordar pasar por la farmacia antes de las ocho.\n</pasted_content>",
+   "expected": [
+    "marca-marketing"
+   ],
+   "kind": "ambiguo",
+   "variant": "pegado",
+   "source": 59
+  },
+  {
+   "query": "me han suspendido el último examen y quiero saber en qué fallé\n\nTypeError: Cannot read properties of undefined (reading 'map')\n    at render (webpack:///src/List.jsx:12:18)\n    at mountComponent (react-dom.development.js:1450:7)",
+   "expected": [
+    "estudio-a-medida"
+   ],
+   "kind": "ambiguo",
+   "variant": "traceback",
+   "source": 60
+  },
+  {
+   "query": "Bueno, a ver cómo lo cuento: es lunes, el café se me ha quedado frío y tengo la mesa llena de papeles, pero quiero quitarme esto de encima cuanto antes. me han suspendido el último examen y quiero saber en qué fallé",
+   "expected": [
+    "estudio-a-medida"
+   ],
+   "kind": "ambiguo",
+   "variant": "contexto",
+   "source": 60
+  },
+  {
+   "query": "me han suspendido el último examen y quiero saber en qué fallé\n<pasted_content>\nHorario del gimnasio: lunes a viernes de 7:00 a 22:00, sábados de 9:00 a 14:00. Las clases de spinning se reservan en recepción con un día de antelación.\n</pasted_content>",
+   "expected": [
+    "estudio-a-medida"
+   ],
+   "kind": "ambiguo",
+   "variant": "pegado",
+   "source": 60
+  }
+ ]
+}

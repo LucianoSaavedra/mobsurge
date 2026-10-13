@@ -349,6 +349,12 @@ class NormalizeQueryTest(unittest.TestCase):
         q2 = "resume esto\n<pasted_content id=2 />"
         self.assertEqual(normalize_query(q2), "resume esto")
 
+    def test_cierre_con_atributos_no_se_come_lo_tecleado_despues(self):
+        # Claude Code repite el id en la etiqueta de cierre.
+        q = ('<pasted_content id="a1b2">\nlínea pegada\n</pasted_content id="a1b2">\n'
+             "resume esto")
+        self.assertEqual(normalize_query(q), "resume esto")
+
     def test_marca_sin_cierre_llega_hasta_el_final(self):
         q = "resume esto\n<pasted_content id=3>\nmucho texto pegado\nque no se cierra"
         self.assertEqual(normalize_query(q), "resume esto")

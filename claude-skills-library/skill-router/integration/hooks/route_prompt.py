@@ -3,9 +3,10 @@
 Hook `UserPromptSubmit` del Skill Router para Claude Code.
 
 En cada mensaje que envías, Claude Code ejecuta este script ANTES de que Claude lo
-procese. El script puntúa tus skills instaladas contra el mensaje y, si alguna
-encaja, le pasa a Claude una nota breve: qué skills usar en este turno, por qué, y
-cuáles son ruido. Si ninguna encaja, no imprime nada y Claude no ve nada.
+procese. El script puntúa tus skills instaladas contra el mensaje y, solo si una
+encaja con claridad, le pasa a Claude una nota de una línea: qué skill usar y por
+qué. Ante la duda no imprime nada: es mejor no inyectar nada que inyectar una
+skill equivocada (y cada carácter inyectado gasta tokens en cada turno).
 
 Contrato (verificado en https://code.claude.com/docs/en/hooks):
 - Entrada: un objeto JSON por stdin con los campos comunes (`session_id`,
@@ -14,21 +15,27 @@ Contrato (verificado en https://code.claude.com/docs/en/hooks):
 - Salida: exit 0 y, solo si hay recomendación, UN objeto JSON en stdout:
       {"hookSpecificOutput": {"hookEventName": "UserPromptSubmit",
                               "additionalContext": "..."}}
-  Claude Code inyecta `additionalContext` como recordatorio de sistema junto al
-  prompt. Tope documentado: 10.000 caracteres (aquí se limita a ~2.000).
+  Claude Code inyecta `additionalContext` junto al prompt. Tope documentado:
+  10.000 caracteres (aquí, una línea de ~100-200).
 - Nunca bloquea: no usa exit 2 ni `"decision": "block"`. Cualquier error se
   registra en stderr (Claude no ve stderr cuando el hook sale con 0) y sale con 0.
 
 Variables de entorno (todas opcionales):
-  SKILL_ROUTER_HOME           carpeta del router (por defecto, dos niveles arriba).
-  SKILL_ROUTER_SKILLS_DIR     carpeta(s) de skills, separadas por ':' (';' en Windows).
-  SKILL_ROUTER_CATALOG        usar este skills.json en vez de las skills instaladas.
-  SKILL_ROUTER_DEMO=1         usar las 6 skills de demo (para probar).
-  SKILL_ROUTER_HOOK_LLM=1     usar Claude como scorer (más lento; cae al léxico si falla).
-  SKILL_ROUTER_HOOK_TOP       máximo de skills recomendadas (def. 3).
-  SKILL_ROUTER_HOOK_THRESHOLD puntuación mínima 0-100 para recomendar (def. 15).
-  SKILL_ROUTER_HOOK_OFF=1     desactiva el hook sin tocar settings.json.
-  SKILL_ROUTER_HOOK_DEBUG=1   escribe diagnóstico y tiempos en stderr.
+  SKILL_ROUTER_HOME            carpeta del router (por defecto, dos niveles arriba).
+  SKILL_ROUTER_SKILLS_DIR      carpeta(s) de skills, separadas por ':' (';' en Windows).
+  SKILL_ROUTER_CATALOG         usar este skills.json en vez de las skills instaladas.
+  SKILL_ROUTER_DEMO=1          usar las 6 skills de demo (para probar).
+  SKILL_ROUTER_HOOK_MODE       lexical (def.) | cascade | llm. cascade y llm gastan
+                               cuota del plan: cascade solo cuando el léxico duda.
+  SKILL_ROUTER_HOOK_LLM=1      compatibilidad: equivale a SKILL_ROUTER_HOOK_MODE=llm.
+  SKILL_ROUTER_HOOK_TOP        máximo de skills en la nota (def. 2).
+  SKILL_ROUTER_HOOK_THRESHOLD  puntuación mínima 0-100 (def. 20; el CLI usa 15).
+  SKILL_ROUTER_HOOK_MIN_MATCHED coincidencias distintas mínimas en léxico (def. 2).
+  SKILL_ROUTER_HOOK_MARGIN     ventaja mínima del #1 sobre el #2 en léxico (def. 10).
+  SKILL_ROUTER_HOOK_OFF=1      desactiva el hook sin tocar settings.json.
+  SKILL_ROUTER_HOOK_DEBUG=1    escribe diagnóstico y tiempos en stderr.
+  SKILL_ROUTER_CHILD=1         lo pone llm_scorer en el `claude -p` hijo: el hook
+                               sale en silencio (evita la recursión).
 
 Prueba a mano:
   echo '{"hook_event_name":"UserPromptSubmit","prompt":"repasar para el examen"}' \\
@@ -46,21 +53,35 @@ import time
 from pathlib import Path
 
 HOOK_EVENT = "UserPromptSubmit"
-# Evita la recursión cuando el scorer LLM llama a `claude -p`: ese Claude hijo
+# Evitan la recursión cuando el scorer LLM llama a `claude -p`: ese Claude hijo
 # ejecutaría este mismo hook, que volvería a llamar a `claude -p`, y así sin fin.
+# llm_scorer pone SKILL_ROUTER_CHILD=1 en el hijo; SKILL_ROUTER_HOOK_ACTIVE es la
+# guardia antigua, que se sigue respetando y heredando.
+CHILD_ENV = "SKILL_ROUTER_CHILD"
 GUARD_ENV = "SKILL_ROUTER_HOOK_ACTIVE"
-# La propia skill del router no se recomienda a sí misma en cada turno.
+# La propia skill del router no se recomienda a sí misma.
 SELF_NAMES = {"skill-router"}
 
-MAX_PROMPT_CHARS = 4000     # lo que se puntúa del mensaje (pegados largos diluyen)
-MAX_CONTEXT_CHARS = 2000    # muy por debajo del tope de 10.000 de Claude Code
-MAX_NOISE_LISTED = 8        # nombres de "ruido" que se listan antes de resumir
-MAX_REASON_CHARS = 160
+MODES = ("lexical", "cascade", "llm")
+MAX_PROMPT_CHARS = 4000     # lo que se puntúa del mensaje
+MAX_CONTEXT_CHARS = 400     # la nota es una línea; esto es solo un tope de seguridad
+MAX_REASON_CHARS = 50
+MAX_REASON_TERMS = 3
+DEFAULT_TOP = 2
+# Política de precisión del modo léxico (medida con skills reales y mensajes
+# propios; ver integration/README.md, "Precisión del hook").
+DEFAULT_THRESHOLD = 20
+DEFAULT_MIN_MATCHED = 2
+DEFAULT_MARGIN = 10
 DEFAULT_LLM_TIMEOUT_S = 20  # el hook entero tiene 30 s por defecto en este evento
 
 _TRUE = {"1", "true", "yes", "si", "sí", "on"}
 # Líneas que Claude Code añade alrededor del texto pegado (documentado).
 _PASTED_MARKER = re.compile(r"^[ \t]*</?pasted_content\b[^>\n]*>[ \t]*$", re.MULTILINE)
+# Claude Code cierra el pegado con `</pasted_content id="…">`; normalize_query
+# solo reconoce `</pasted_content>` y, sin él, borraría hasta el final (también
+# lo tecleado después). Se reescribe el cierre antes de normalizar.
+_PASTED_CLOSE = re.compile(r"</pasted_content\b[^>\n]*>")
 # "/comando args": el usuario ya eligió skill/comando; no se sugiere nada.
 _SLASH_COMMAND = re.compile(r"^/[\w:.\-]+(\s|$)")
 _WS = re.compile(r"\s+")
@@ -103,6 +124,31 @@ def router_dir() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+def import_router():
+    """Importa skill_router desde router_dir(). None si no está."""
+    rdir = router_dir()
+    if not (rdir / "skill_router.py").is_file():
+        print(f"[skill-router hook] no encuentro skill_router.py en {rdir} "
+              f"(define SKILL_ROUTER_HOME)", file=sys.stderr)
+        return None
+    if str(rdir) not in sys.path:
+        sys.path.insert(0, str(rdir))
+    import skill_router as sr
+    return sr
+
+
+def hook_mode() -> str:
+    """lexical | cascade | llm. SKILL_ROUTER_HOOK_MODE manda; si no está,
+    SKILL_ROUTER_HOOK_LLM=1 (compatibilidad) equivale a llm."""
+    mode = os.environ.get("SKILL_ROUTER_HOOK_MODE", "").strip().lower()
+    if mode in MODES:
+        return mode
+    if mode:
+        _debug(f"SKILL_ROUTER_HOOK_MODE={mode!r} no válido; uso lexical")
+        return "lexical"
+    return "llm" if _flag("SKILL_ROUTER_HOOK_LLM") else "lexical"
+
+
 # --- Entrada -----------------------------------------------------------------
 def parse_args(argv: list[str]) -> tuple[str | None, bool]:
     """Solo para pruebas a mano. Sin argparse: un error de argumentos no debe
@@ -135,13 +181,62 @@ def read_event() -> dict | None:
     return data if isinstance(data, dict) else None
 
 
+def clip(text: str, limit: int = MAX_PROMPT_CHARS) -> str:
+    """Recorta a `limit` conservando el principio Y el final: la petición suele
+    ir al final de un pegado largo."""
+    if len(text) <= limit:
+        return text
+    head = limit // 2
+    return text[:head] + "\n" + text[-(limit - head - 1):]
+
+
 def clean_prompt(prompt: str) -> str:
-    return _PASTED_MARKER.sub("", prompt).strip()[:MAX_PROMPT_CHARS]
+    """Todo el mensaje (tecleado + pegado) sin las marcas de pegado, recortado."""
+    return clip(_PASTED_MARKER.sub("", prompt).strip())
+
+
+def split_prompt(sr, prompt: str) -> tuple[str, str]:
+    """(tecleado, completo). `tecleado` sale de normalize_query sobre el mensaje
+    ENTERO, antes de recortar: así un log largo pegado no empuja fuera la petición.
+    Si todo era pegado, normalize_query devuelve el original y ambos coinciden."""
+    typed = clip(sr.normalize_query(_PASTED_CLOSE.sub("</pasted_content>", prompt)).strip())
+    return typed, clean_prompt(prompt)
 
 
 # --- Skills ------------------------------------------------------------------
-def load_skills(sr, event: dict) -> tuple[list, str, bool]:
-    """Devuelve (skills, descripción de la fuente, es_catalogo)."""
+def project_skill_dirs(roots) -> list[Path]:
+    """<dir>/.claude/skills desde cada raíz subiendo hasta la raíz git (la que
+    tiene .git), como hace Claude Code. Sin repo git, solo la propia raíz."""
+    dirs: list[Path] = []
+    for root in roots:
+        if not (isinstance(root, (str, Path)) and str(root).strip()):
+            continue
+        try:
+            start = Path(root).expanduser().resolve()
+        except OSError:
+            continue
+        chain, d = [], start
+        while True:
+            chain.append(d)
+            if (d / ".git").exists():
+                break
+            if d.parent == d:
+                chain = [start]  # no hay repo: no se sube hasta /
+                break
+            d = d.parent
+        dirs.extend(c / ".claude" / "skills" for c in chain)
+    return dirs
+
+
+def discover_skills(sr, roots) -> tuple[list, str, bool]:
+    """Skills que ve Claude Code, sin la propia skill-router.
+
+    Devuelve (skills, descripción de la fuente, es_catalogo). La comparten el hook
+    y la skill /skill-router (run_router.py), para que respondan lo mismo:
+    personales (~/.claude/skills) + las del proyecto desde cada raíz de `roots`
+    hasta la raíz git. El catálogo skills.json solo se usa si, quitada la propia
+    skill-router, no queda ninguna.
+    """
     if _flag("SKILL_ROUTER_DEMO"):
         return sr.demo_skills(), "skills de demo", False
 
@@ -153,13 +248,9 @@ def load_skills(sr, event: dict) -> tuple[list, str, bool]:
     if explicit:
         dirs = [Path(p).expanduser() for p in explicit.split(os.pathsep) if p.strip()]
     else:
-        # Personales + las del proyecto (Claude Code carga ambas).
-        dirs = [Path.home() / ".claude" / "skills"]
-        for root in (os.environ.get("CLAUDE_PROJECT_DIR"), event.get("cwd")):
-            if isinstance(root, str) and root.strip():
-                dirs.append(Path(root) / ".claude" / "skills")
+        dirs = [Path.home() / ".claude" / "skills", *project_skill_dirs(roots)]
 
-    skills, names, seen_dirs, used = [], set(), set(), []
+    skills, names, seen_dirs, used = [], set(SELF_NAMES), set(), []
     for d in dirs:
         try:
             key = d.resolve()
@@ -182,86 +273,121 @@ def load_skills(sr, event: dict) -> tuple[list, str, bool]:
     # Sin skills instaladas: el catálogo vecino (claude-skills-library/skills.json).
     catalog = router_dir().parent / "skills.json"
     if catalog.is_file():
-        return sr.load_from_catalog(catalog), "catálogo skills.json", True
+        found = [s for s in sr.load_from_catalog(catalog) if s.name not in SELF_NAMES]
+        if found:
+            return found, "catálogo skills.json", True
     return [], "", False
 
 
+def load_skills(sr, event: dict) -> tuple[list, str, bool]:
+    return discover_skills(sr, (os.environ.get("CLAUDE_PROJECT_DIR"), event.get("cwd")))
+
+
 # --- Puntuación --------------------------------------------------------------
-def score(sr, skills: list, prompt: str) -> tuple[list[dict], str]:
-    if _flag("SKILL_ROUTER_HOOK_LLM"):
+def score(sr, skills: list, text: str, mode: str) -> tuple[list[dict], bool]:
+    """Devuelve (resultados, usó_llm). Si el LLM falla, cae al léxico."""
+    if mode in ("llm", "cascade"):
         try:
             os.environ[GUARD_ENV] = "1"  # lo hereda el `claude -p` hijo
             os.environ.setdefault("SKILL_ROUTER_LLM_TIMEOUT", str(DEFAULT_LLM_TIMEOUT_S))
-            import llm_scorer  # import tardío: solo cuesta si se pide
-            return llm_scorer.llm_score(skills, prompt), "LLM"
+            if mode == "llm":
+                import llm_scorer  # import tardío: solo cuesta si se pide
+                return llm_scorer.llm_score(skills, text), True
+            import cascade
+            usage: dict = {}
+            results, used = cascade.cascade_score(skills, text, usage=usage)
+            if usage.get("error"):
+                print(f"[skill-router hook] scorer LLM no disponible, uso el léxico: "
+                      f"{usage['error']}", file=sys.stderr)
+            return results, used
         except Exception as e:  # LLMUnavailable, timeout, JSON raro...
             print(f"[skill-router hook] scorer LLM no disponible, uso el léxico: {e}",
                   file=sys.stderr)
-    return sr.score_skills(skills, prompt, use_concepts=True), "léxico+conceptos"
+    return sr.score_skills(skills, text, use_concepts=True, normalize=False), False
 
 
-def _reason(matched: list) -> str:
+def select(sr, results: list[dict], used_llm: bool) -> list[dict]:
+    """Filtro de precisión. Ante la duda, nada.
+
+    - umbral (def. 20) y top (def. 2);
+    - léxico: al menos MIN_MATCHED coincidencias distintas (una sola palabra
+      suelta como "app" o "type" no basta) y que el #1 saque MARGIN puntos al
+      siguiente candidato (los empates entre skills sin relación son ruido).
+    El LLM ya decidió: solo se le aplican umbral y top.
+    """
+    top = _env_int("SKILL_ROUTER_HOOK_TOP", DEFAULT_TOP, 1, 10)
+    threshold = _env_int("SKILL_ROUTER_HOOK_THRESHOLD", DEFAULT_THRESHOLD, 0, 100)
+    if used_llm:
+        return sr.classify(results, top, threshold)[0]
+    min_matched = _env_int("SKILL_ROUTER_HOOK_MIN_MATCHED", DEFAULT_MIN_MATCHED, 1, 10)
+    margin = _env_int("SKILL_ROUTER_HOOK_MARGIN", DEFAULT_MARGIN, 0, 100)
+    recommended = sr.classify(results, top, threshold, min_matched=min_matched)[0]
+    if not recommended or margin <= 0:
+        return recommended
+    ranked = sorted(results, key=lambda r: -r["score"])
+    first = recommended[0]
+    rival = next((r for r in ranked if r is not first), None)
+    if rival is not None and first["score"] - rival["score"] < margin:
+        # Si el rival también pasó el filtro, son dos buenas candidatas: se
+        # mantienen ambas. Si no, el #1 no destaca: silencio.
+        if not any(r is rival for r in recommended):
+            return []
+    return recommended
+
+
+def _reason(matched) -> str:
+    if isinstance(matched, str):
+        return _inline(matched, MAX_REASON_CHARS)
     parts = []
     for m in matched or []:
         m = str(m)
         parts.append("~" + m.split(":", 1)[1] if m.startswith("concept:") else m)
-    return _inline(", ".join(parts), MAX_REASON_CHARS) if parts else "coincidencia general"
+    return _inline(", ".join(parts[:MAX_REASON_TERMS]), MAX_REASON_CHARS) if parts else ""
 
 
-def build_context(recommended: list[dict], noise: list[dict], scorer: str,
-                  source: str, n_skills: int, is_catalog: bool) -> str:
-    lines = [
-        f"Skill Router: sugerencia automática para este turno "
-        f"(scorer {scorer}; fuente: {source}, {n_skills} skill{'' if n_skills == 1 else 's'}).",
-    ]
-    if is_catalog:
-        lines.append("Ojo: son colecciones del catálogo skills.json; puede que no estén instaladas.")
-    lines.append("Skills que encajan con este mensaje:")
+def build_context(recommended: list[dict], used_llm: bool, is_catalog: bool) -> str:
+    """Una sola línea: skill(s) y motivo breve. Cada carácter cuesta tokens en
+    cada turno en que se inyecta."""
+    items = []
     for r in recommended:
-        scen = f" [{_inline(r.get('scenario', ''), 60)}]" if r.get("scenario") else ""
-        lines.append(f"- {_inline(r['name'], 80)}{scen}: relevancia {int(r['score'])}/100; "
-                     f"motivo: {_reason(r.get('matched'))}")
-    if noise:
-        shown = ", ".join(_inline(r["name"], 60) for r in noise[:MAX_NOISE_LISTED])
-        extra = f" (y {len(noise) - MAX_NOISE_LISTED} más)" if len(noise) > MAX_NOISE_LISTED else ""
-        lines.append(f"Ruido para este turno (no hace falta cargarlas): {shown}{extra}.")
-    basis = "" if scorer == "LLM" else " basada en palabras clave"
-    lines.append(f"Es una pista orientativa{basis}: si no encaja con lo que "
-                 "pide el usuario, ignórala. No hace falta mencionarla.")
-    text = "\n".join(lines)
+        why = _reason(r.get("matched"))
+        items.append(_inline(r["name"], 60) + (f" ({why})" if why else ""))
+    basis = "LLM" if used_llm else "palabras clave"
+    extra = "; del catálogo, quizá no instalada" if is_catalog else ""
+    text = (f"Skill Router ({basis}{extra}): podría servir {'; '.join(items)}. "
+            "Ignóralo si no encaja.")
     return text if len(text) <= MAX_CONTEXT_CHARS else text[: MAX_CONTEXT_CHARS - 1] + "…"
 
 
 def route(event: dict, prompt: str) -> str | None:
     """Devuelve el texto de contexto, o None si no hay nada que recomendar."""
     t0 = time.perf_counter()
-    rdir = router_dir()
-    if not (rdir / "skill_router.py").is_file():
-        print(f"[skill-router hook] no encuentro skill_router.py en {rdir} "
-              f"(define SKILL_ROUTER_HOME)", file=sys.stderr)
+    sr = import_router()
+    if sr is None:
         return None
-    if str(rdir) not in sys.path:
-        sys.path.insert(0, str(rdir))
-    import skill_router as sr
 
     skills, source, is_catalog = load_skills(sr, event)
-    skills = [s for s in skills if s.name not in SELF_NAMES]
     t1 = time.perf_counter()
     if not skills:
         _debug("no hay skills; no recomiendo nada")
         return None
 
-    results, scorer = score(sr, skills, prompt)
-    top = _env_int("SKILL_ROUTER_HOOK_TOP", 3, 1, 10)
-    threshold = _env_int("SKILL_ROUTER_HOOK_THRESHOLD", 15, 0, 100)
-    recommended, noise = sr.classify(results, top, threshold)
+    mode = hook_mode()
+    typed, full = split_prompt(sr, prompt)
+    results, used_llm = score(sr, skills, typed, mode)
+    recommended = select(sr, results, used_llm)
+    if not recommended and not used_llm and full != typed:
+        # Lo tecleado no basta ("arréglalo" + traza pegada): se puntúa con lo
+        # pegado, con el mismo filtro. Solo léxico: no gasta otra llamada al LLM.
+        recommended = select(sr, sr.score_skills(skills, full, use_concepts=True,
+                                                 normalize=False), False)
     t2 = time.perf_counter()
-    _debug(f"{len(skills)} skills ({source}); carga {1000 * (t1 - t0):.1f} ms, "
+    _debug(f"{len(skills)} skills ({source}); modo {mode}; carga {1000 * (t1 - t0):.1f} ms, "
            f"puntuación {1000 * (t2 - t1):.1f} ms; recomendadas: "
-           f"{[r['name'] for r in recommended]}")
+           f"{[(r['name'], r['score']) for r in recommended]}")
     if not recommended:
         return None
-    return build_context(recommended, noise, scorer, source, len(skills), is_catalog)
+    return build_context(recommended, used_llm, is_catalog)
 
 
 # --- Salida ------------------------------------------------------------------
@@ -281,7 +407,7 @@ def emit(context: str, as_text: bool) -> None:
 def main(argv: list[str]) -> int:
     t0 = time.perf_counter()
     try:
-        if os.environ.get(GUARD_ENV) or _flag("SKILL_ROUTER_HOOK_OFF"):
+        if _flag(CHILD_ENV) or os.environ.get(GUARD_ENV) or _flag("SKILL_ROUTER_HOOK_OFF"):
             return 0
         manual_prompt, as_text = parse_args(argv)
         if manual_prompt is not None:
@@ -295,8 +421,7 @@ def main(argv: list[str]) -> int:
         prompt = event.get("prompt")
         if not isinstance(prompt, str):
             return 0
-        prompt = clean_prompt(prompt)
-        if not prompt or _SLASH_COMMAND.match(prompt):
+        if not prompt.strip() or _SLASH_COMMAND.match(prompt.strip()):
             return 0
         context = route(event, prompt)
         if context:

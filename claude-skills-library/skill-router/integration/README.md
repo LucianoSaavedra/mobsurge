@@ -5,9 +5,10 @@ mensaje, sin que tengas que ejecutarlo a mano. Tiene dos piezas:
 
 1. **Hook automático** (`hooks/route_prompt.py`). Cada vez que envías un mensaje,
    Claude Code ejecuta el hook antes de que Claude lo lea. El hook puntúa tus
-   skills contra el mensaje y, si alguna encaja, le pasa a Claude una nota con las
-   skills recomendadas para ese turno, el motivo y las que sobran. Si ninguna
-   encaja, el hook no imprime nada y Claude no recibe ninguna nota.
+   skills contra el mensaje y, solo si una encaja con claridad, le pasa a Claude
+   una nota de una línea: la skill y un motivo breve. Ante la duda no imprime nada:
+   es mejor no inyectar nada que inyectar una skill equivocada, y cada carácter
+   inyectado gasta tokens.
 2. **Skill bajo demanda** (`skill-router/SKILL.md`). Sirve para preguntarle a
    Claude "¿qué skills debería usar para esto?" o "¿tengo skills que se
    solapan?". Claude ejecuta el router y te explica el resultado.
@@ -17,12 +18,12 @@ hook con las skills de demo y el mensaje "quiero preparar mi examen de cálculo
 con flashcards y un simulacro":
 
 ```text
-Skill Router: sugerencia automática para este turno (scorer léxico+conceptos; fuente: skills de demo, 6 skills).
-Skills que encajan con este mensaje:
-- estudio-a-medida [Estudio]: relevancia 60/100; motivo: examen, flashcards, simulacro, ~estudio
-Ruido para este turno (no hace falta cargarlas): code-review, debug, deep-research, guiones-video, marca-marketing.
-Es una pista orientativa basada en palabras clave: si no encaja con lo que pide el usuario, ignórala. No hace falta mencionarla.
+Skill Router (palabras clave): podría servir estudio-a-medida (examen, flashcards, simulacro). Ignóralo si no encaja.
 ```
+
+Son 115 caracteres. La nota anterior (con puntuación, fuente y lista de ruido)
+ocupaba de media entre 480 y 630 caracteres por inyección; ver
+[Precisión del hook](#precisión-del-hook-medida).
 
 La nota no aparece en tu pantalla. Claude Code se la pasa a Claude como un
 recordatorio de sistema.
@@ -35,7 +36,7 @@ recordatorio de sistema.
 | `settings.example.json` | Fragmento de `settings.json` que registra el hook |
 | `skill-router/SKILL.md` | Skill `/skill-router` para usar el router bajo demanda |
 | `skill-router/run_router.py` | Lanzador que encuentra `skill_router.py` desde la skill |
-| `tests/test_route_prompt.py` | 31 pruebas del hook y del lanzador (`unittest`) |
+| `tests/test_route_prompt.py` | 50 pruebas del hook y del lanzador (`unittest`) |
 
 ## El contrato del hook (comprobado en la documentación oficial)
 
@@ -61,11 +62,18 @@ El hook usa tres de esos campos:
 
 - `prompt`: el texto que se puntúa. La documentación avisa de que el texto pegado
   llega expandido entre una línea `<pasted_content id="…">` y otra
-  `</pasted_content id="…">`. El hook borra esas dos líneas y conserva el texto.
+  `</pasted_content id="…">`. El hook aplica `normalize_query` al mensaje ENTERO
+  y después recorta a 4.000 caracteres: quita lo pegado (bloques marcados,
+  trazas, logs, código) y puntúa lo que tecleaste. Si eso no da ninguna
+  recomendación (por ejemplo "arréglalo" tras una traza), vuelve a puntuar con lo
+  pegado incluido, con el mismo filtro. El recorte conserva el principio y el
+  final, porque la petición suele ir al final. Un pegado corto en línea, sin
+  marcas, solo se separa si parece código, traza o log.
 - `hook_event_name`: si llega y no es `UserPromptSubmit`, el hook no hace nada.
-- `cwd`: para encontrar también las skills del proyecto (`<cwd>/.claude/skills`).
-  También usa la variable de entorno `CLAUDE_PROJECT_DIR`, que según la
-  documentación es "the project root where the session started".
+- `cwd`: para encontrar también las skills del proyecto: `.claude/skills` desde
+  `cwd` subiendo hasta la raíz git, como hace Claude Code. También usa la
+  variable de entorno `CLAUDE_PROJECT_DIR`, que según la documentación es "the
+  project root where the session started".
 
 **Salida.** Hay dos formas de añadir contexto cuando el hook sale con código 0.
 Según la documentación:
@@ -79,7 +87,7 @@ Este hook usa la forma JSON. Si hay recomendación, imprime un solo objeto JSON 
 nada más:
 
 ```json
-{"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": "Skill Router: ..."}}
+{"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": "Skill Router (palabras clave): ..."}}
 ```
 
 La documentación pide que stdout contenga solo ese objeto: "Print nothing but the
@@ -95,8 +103,8 @@ JSON object to stdout". El JSON se escribe con caracteres no ASCII escapados
 - **Silencio si no hay recomendación.** Con stdout vacío, Claude no recibe nada.
 - **Tamaño.** `additionalContext` tiene un tope de 10.000 caracteres. Por encima,
   Claude Code guarda el texto en un archivo y a Claude solo le pasa la ruta y un
-  avance. El hook recorta su nota a 2.000 caracteres y lista como máximo 8 skills
-  de ruido. Las notas medidas en las pruebas ocupan entre 485 y 760 caracteres.
+  avance. La nota de este hook es una sola línea (unos 100-110 caracteres de
+  media en las mediciones) con un tope de seguridad de 400.
 - **Tiempo.** En `UserPromptSubmit` el `timeout` por defecto es 30 s. Si se
   agota, la documentación dice que el hook "is canceled and its output, including
   any `additionalContext`, is discarded". En modo léxico el hook tarda de media
@@ -130,11 +138,13 @@ Tiene que imprimir un JSON con `hookSpecificOutput`. Para leer la nota sin
 escapes, usa `--prompt` y `--texto`:
 
 ```bash
-python3 ROUTER/integration/hooks/route_prompt.py --prompt "revisa este pull request" --texto
+SKILL_ROUTER_DEMO=1 python3 ROUTER/integration/hooks/route_prompt.py --prompt "revisa este pull request" --texto
 ```
 
-Sin `SKILL_ROUTER_DEMO=1`, el hook usa tus skills reales de `~/.claude/skills`.
-Si con ellas no imprime nada, ninguna skill superó el umbral para ese mensaje.
+Sin `SKILL_ROUTER_DEMO=1`, el hook usa tus skills reales (las de
+`~/.claude/skills` y las del proyecto). Si con ellas no imprime nada, ninguna
+skill pasó el filtro de precisión para ese mensaje: es lo esperado en la mayoría
+de los mensajes.
 
 **3. Registra el hook.** Abre `~/.claude/settings.json` (o créalo) y añade el
 bloque `hooks` de [`settings.example.json`](settings.example.json). Cambia el
@@ -209,6 +219,8 @@ pregunta. Para no tener que aprobarlo cada vez, añade la regla a tu
   Hook UserPromptSubmit (Skill Router: eligiendo skills...) provided additionalContext (485 chars)
   ```
 
+  (Esa prueba se hizo con la nota antigua; la actual ocupa unos 100 caracteres.)
+
 - Pregunta a Claude: "¿qué skills debería usar para preparar un examen?". En las
   pruebas, Claude eligió la skill `skill-router` por su descripción, sin que se
   la nombraran.
@@ -220,24 +232,35 @@ Esto no se ha probado en Windows.
 
 ## Cómo probarlo
 
-**Pruebas automáticas.** No usan tus skills reales: ponen `HOME` en una carpeta
-temporal.
+**Pruebas automáticas.** No usan tus skills reales: ponen `HOME` y el `cwd` en
+carpetas temporales. Además ponen en el `PATH` un `claude` trampa: si una prueba
+llegara a llamar al LLM de verdad, falla (no gasta cuota). Las pruebas que
+esperan silencio comprueban también que stderr no tenga un error tragado.
 
 ```bash
 cd ROUTER
-python3 integration/tests/test_route_prompt.py -v
+python3 -m unittest discover -s integration/tests -v
 ```
 
-Resultado real: `Ran 31 tests ... OK`. Las pruebas cubren estos casos:
+Resultado real: `Ran 50 tests ... OK`. Las pruebas cubren estos casos:
 
 - Estudio, video, negativo, JSON malformado y stdin vacío.
 - JSON que no es un objeto, prompt ausente, otro evento y comandos `/...`.
 - UTF-8 inválido.
-- Guardia de recursión e interruptor `OFF`.
+- Guardias de recursión (`SKILL_ROUTER_CHILD=1` y `SKILL_ROUTER_HOOK_ACTIVE`) e
+  interruptor `OFF`.
+- Filtro de precisión (una palabra suelta no basta; margen frente al #2) y nota
+  de una línea, ASCII y acotada.
+- Texto pegado: log largo con la petición al final y traza que no debe arrastrar
+  la recomendación.
+- Modos `lexical`, `cascade` y `llm`, con un `claude` falso que cuenta llamadas,
+  y el timeout de 20 s que hereda el hijo.
 - Router no encontrado.
 - Umbral y top configurables.
-- Skills personales, del proyecto, de una carpeta explícita, del catálogo, o
-  ninguna; nombres repetidos cuentan una vez.
+- Skills personales, del proyecto (también desde un subdirectorio, subiendo
+  hasta la raíz git), de una carpeta explícita, del catálogo, o ninguna; nombres
+  repetidos cuentan una vez.
+- La skill y el hook ven las mismas skills.
 - La autoexclusión de `skill-router`.
 - El scorer LLM, con un `claude` falso y sin backend.
 - El lanzador de la skill, incluido el caso de enlace simbólico.
@@ -247,11 +270,13 @@ Resultado real: `Ran 31 tests ... OK`. Las pruebas cubren estos casos:
 
 | Entrada por stdin | Exit | Salida |
 |---|---|---|
-| `"prompt": "quiero preparar mi examen de cálculo con flashcards y un simulacro"` | 0 | JSON. Recomienda `estudio-a-medida` (60/100; motivo: examen, flashcards, simulacro, ~estudio) |
-| `"prompt": "mañana tengo la prueba de biología, ayúdame a repasar"` | 0 | Nada. `estudio-a-medida` saca 11/100, por debajo del umbral de 15 |
-| `"prompt": "escríbeme un guion para un reel de tiktok con buen gancho"` | 0 | JSON. Recomienda `guiones-video` (66/100; motivo: guion, reel, tiktok, gancho, ~video) |
+| `"prompt": "quiero preparar mi examen de cálculo con flashcards y un simulacro"` | 0 | JSON: `podría servir estudio-a-medida (examen, flashcards, simulacro)` |
+| `"prompt": "escríbeme un guion para un reel de tiktok con buen gancho"` | 0 | JSON: `podría servir guiones-video (guion, reel, tiktok)` |
 | `"prompt": "hola"` | 0 | Nada |
+| Traceback pegado + "revisa este código por bugs de seguridad" | 0 | JSON: `podría servir code-review (codigo, bugs, seguridad)` |
+| Traceback pegado + "arréglalo" | 0 | JSON: `code-review (seguridad, codigo, ~revision_codigo)`, puntuando con lo pegado porque lo tecleado no basta |
 | `{"prompt": "examen de calculo", ` (JSON malformado) | 0 | Nada. En stderr: `[skill-router hook] error ignorado: JSONDecodeError: ...` |
+| Cualquier prompt con `SKILL_ROUTER_CHILD=1` | 0 | Nada, ni en stderr |
 | stdin vacío | 0 | Nada |
 
 **De principio a fin dentro de Claude Code.** Se lanzó un `claude -p` anidado
@@ -291,10 +316,13 @@ principio a fin.
 | Variable | Efecto |
 |---|---|
 | `SKILL_ROUTER_HOOK_OFF=1` | Apaga el hook sin tocar la configuración de hooks |
-| `SKILL_ROUTER_HOOK_THRESHOLD` | Puntuación mínima (0-100) para recomendar. Por defecto, 15, igual que el CLI |
-| `SKILL_ROUTER_HOOK_TOP` | Máximo de skills recomendadas (1-10). Por defecto, 3 |
-| `SKILL_ROUTER_HOOK_LLM=1` | Usa Claude como scorer: el SDK con `ANTHROPIC_API_KEY`, o si no `claude -p`. Si falla, vuelve al léxico |
-| `SKILL_ROUTER_LLM_TIMEOUT` | Segundos máximos de la llamada LLM. En el hook, 20 por defecto |
+| `SKILL_ROUTER_HOOK_MODE` | `lexical` (por defecto, sin coste), `cascade` (léxico y Claude solo cuando el léxico duda) o `llm` (Claude en cada mensaje). Los dos últimos gastan cuota; si el LLM falla, vuelven al léxico |
+| `SKILL_ROUTER_HOOK_LLM=1` | Compatibilidad: equivale a `SKILL_ROUTER_HOOK_MODE=llm`. Si las dos están, manda `SKILL_ROUTER_HOOK_MODE` |
+| `SKILL_ROUTER_HOOK_THRESHOLD` | Puntuación mínima (0-100) para recomendar. Por defecto, 20 (el CLI usa 15) |
+| `SKILL_ROUTER_HOOK_MIN_MATCHED` | Solo léxico: coincidencias distintas mínimas. Por defecto, 2 (una palabra suelta como "app" no basta) |
+| `SKILL_ROUTER_HOOK_MARGIN` | Solo léxico: puntos que el #1 debe sacar al siguiente si este no pasó el filtro. Por defecto, 10 |
+| `SKILL_ROUTER_HOOK_TOP` | Máximo de skills en la nota (1-10). Por defecto, 2 |
+| `SKILL_ROUTER_LLM_TIMEOUT` | Segundos máximos de cada llamada LLM, tanto con `claude -p` como con el SDK. En el hook, 20 por defecto; al fijarse, el SDK no reintenta, para que el tope sea real. Ojo: con el SDK el tope se aplica a cada fase (conexión, lectura...), no al total |
 | `SKILL_ROUTER_SKILLS_DIR` | Carpeta o carpetas de skills, separadas por `:` (`;` en Windows). Sustituye a `~/.claude/skills` y a las del proyecto |
 | `SKILL_ROUTER_CATALOG` | Usa ese `skills.json` en vez de las skills instaladas |
 | `SKILL_ROUTER_DEMO=1` | Usa las 6 skills de demo (para probar) |
@@ -305,13 +333,38 @@ principio a fin.
 
 1. `SKILL_ROUTER_DEMO`, `SKILL_ROUTER_CATALOG` o `SKILL_ROUTER_SKILLS_DIR`, si
    están definidas.
-2. Si no, `~/.claude/skills` más `.claude/skills` del proyecto (de
-   `CLAUDE_PROJECT_DIR` y de `cwd`), sin repetir nombres.
-3. Si no hay ninguna skill, el catálogo `claude-skills-library/skills.json`. En
-   ese caso la nota avisa de que son colecciones del catálogo y de que quizá no
-   estén instaladas.
+2. Si no, `~/.claude/skills` más `.claude/skills` del proyecto: desde
+   `CLAUDE_PROJECT_DIR` y desde `cwd`, subiendo por cada carpeta hasta la que
+   tiene `.git` (sin repo git, solo la propia carpeta). Sin repetir nombres.
+3. Si, quitada la propia `skill-router`, no queda ninguna skill, el catálogo
+   `claude-skills-library/skills.json`. En ese caso la nota avisa de que quizá no
+   esté instalada.
 
-El hook nunca recomienda la skill `skill-router`, porque ya hace su trabajo.
+La skill `/skill-router` (`run_router.py`) usa exactamente la misma función
+(`discover_skills`), con el directorio actual como raíz, así que el hook y la
+skill ven las mismas skills. Ninguno de los dos se cuenta a sí mismo.
+
+### Precisión del hook (medida)
+
+Se midió con las skills reales de la máquina de desarrollo (14 en
+`~/.claude/skills` y 42 en `/mnt/skills`, descripciones en inglés) y con mensajes
+escritos para esto (36 peticiones normales de desarrollo o charla que no
+necesitan skill y 20 que sí), nunca con `bench/heldout.json`. "Inyección
+equivocada" = nota en un mensaje que no la necesitaba o con la skill #1 errónea.
+
+| Skills | Antes (umbral 15, sin filtro) | Ahora |
+|---|---|---|
+| `~/.claude/skills` (14) | 16 de 22 notas equivocadas (73 %); 10/36 negativos con nota | 0 de 4 (0 %); 0/36 |
+| `/mnt/skills` (42) | 17 de 24 (71 %); 9/36 | 1 de 5 (20 %); 0/36 |
+| Las dos juntas | 18 de 26 (69 %); 10/36 | 1 de 6 (17 %); 0/36 |
+| Demo (6 skills, 10 positivos en español) | 10/10 aciertos; 5/36 negativos con nota | 10/10; 2/36 |
+
+Caracteres medios por nota inyectada: de 546-630 a 102-108.
+
+El coste: con skills de descripción en inglés, los aciertos top-1 bajan de 6-8
+a 4-5 (de 16-20). El filtro que más pesa es `MIN_MATCHED=2`; subir solo el umbral
+a 30 deja más ruido con 42 skills (2 de 5 notas erróneas en `/mnt/skills`). Si
+quieres más recall sin ruido, usa `SKILL_ROUTER_HOOK_MODE=cascade`.
 
 **Modo LLM.** Es más preciso, pero más lento. En el set de 19 casos de `eval.py`,
 el núcleo midió un 100 % de acierto top-1 con el LLM, frente al 84,2 % de
@@ -320,13 +373,16 @@ vez con `claude -p`: tardó 5,9 s y recomendó `estudio-a-medida` (95/100) para
 "mañana tengo la prueba de biología, ayúdame a repasar", un mensaje con el que el
 modo léxico no recomienda nada.
 
-- Consume una llamada al modelo por cada mensaje.
+- `llm` consume una llamada al modelo por cada mensaje; `cascade` solo en los
+  que el léxico no resuelve (ni en los cortos sin nada que enrutar, como "hola").
+  Al LLM se le manda lo tecleado, sin lo pegado, para gastar menos tokens.
 - Mantén `SKILL_ROUTER_LLM_TIMEOUT` por debajo del `timeout` del hook. Si no, el
   hook se cancela y la nota se pierde.
-- Para evitar bucles, el hook pone `SKILL_ROUTER_HOOK_ACTIVE=1` antes de llamar a
-  `claude -p`. El Claude hijo ejecutaría este mismo hook, y el hook sale en
-  silencio si ve esa variable. Una prueba con un `claude` falso comprueba que el
-  proceso hijo hereda la variable.
+- Para evitar bucles: `llm_scorer` lanza el `claude -p` hijo con
+  `SKILL_ROUTER_CHILD=1` (y el hook pone además `SKILL_ROUTER_HOOK_ACTIVE=1`).
+  El Claude hijo ejecutaría este mismo hook, que sale en silencio, con exit 0,
+  si ve cualquiera de las dos. Una prueba con un `claude` falso comprueba que el
+  hijo hereda ambas y el timeout de 20 s.
 
 ## Cómo desactivarlo
 
@@ -375,8 +431,11 @@ según `SKILL_ROUTER_HOOK_DEBUG=1`. Dentro de Claude Code, el log registró 90 y
     `~investigacion`). En cambio, dejó como ruido la skill `pdf`, que era la que
     encajaba.
 
-  Por eso la nota dice que es una pista orientativa y que Claude la ignore si no
-  encaja. Para más precisión, usa `SKILL_ROUTER_HOOK_LLM=1`.
+  Esos dos ejemplos son de antes del filtro de precisión: hoy ninguno inyecta
+  nota. Con skills en inglés el léxico casi nunca acierta, así que el hook
+  prefiere callar (ver [Precisión del hook](#precisión-del-hook-medida)). La nota
+  dice que Claude la ignore si no encaja. Para más recall, usa
+  `SKILL_ROUTER_HOOK_MODE=cascade`.
 - **Los mensajes largos bajan la puntuación.** La puntuación es la fracción del
   peso del mensaje que coincide con la skill. Con las skills de demo, "escríbeme
   un guion para un reel de tiktok con buen gancho" saca 66/100. El mismo mensaje
@@ -384,8 +443,10 @@ según `SKILL_ROUTER_HOOK_DEBUG=1`. Dentro de Claude Code, el log registró 90 y
   debajo del umbral aunque la skill encaje.
 - **Recomienda, pero no activa ni desactiva skills.** Claude Code sigue listando
   todas tus skills en su contexto. El hook solo añade la nota, así que no ahorra
-  tokens: los suma (entre 485 y 760 caracteres por nota en las pruebas).
-- **Solo ve las skills de `~/.claude/skills` y `.claude/skills` del proyecto.**
+  tokens: los suma, aunque poco (unos 100 caracteres, y solo en los mensajes
+  donde una skill encaja con claridad).
+- **Solo ve las skills de `~/.claude/skills` y `.claude/skills` del proyecto
+  (hasta la raíz git).**
   No ve las skills de plugins, las integradas ni las gestionadas por la
   organización. Tampoco lee `disable-model-invocation`, así que puede sugerir una
   skill que Claude no puede cargar por sí mismo.

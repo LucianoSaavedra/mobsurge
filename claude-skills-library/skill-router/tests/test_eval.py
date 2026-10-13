@@ -9,9 +9,14 @@ fallos del LLM (simulado) y la CLI.
 from __future__ import annotations
 
 import json
+import sys
 import unittest
 from pathlib import Path
 from unittest import mock
+
+# Para que también funcione `python3 -m unittest tests.test_eval` desde la carpeta
+# del router (tests/ no es un paquete, así que _support no está en sys.path).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import _support  # noqa: F401  (sys.path + sin .pyc)
 from _support import NoRealLLMMixin, TempDirTestCase, captured_output
@@ -36,16 +41,27 @@ def rows_from(scores: dict[str, int], skills=None) -> list[dict]:
 class FakeLLM:
     """Sustituto de llm_scorer.llm_score: respuestas por mensaje, o excepciones."""
 
-    def __init__(self, plan: dict, cached: bool = False):
+    def __init__(self, plan: dict, cached: bool = False, cost=None):
         self.plan = plan  # query -> dict de scores | Exception
         self.cached = cached
+        self.cost = cost  # None = el backend no informa el coste (como el SDK)
         self.calls: list[str] = []
+        self.models: list = []
 
-    def __call__(self, skills, query, backend=None):
+    def __init_usage(self, usage, model):
+        if isinstance(usage, dict):
+            usage.update({"backend": "cli", "model": model or "x", "cached": self.cached,
+                          "input_tokens": 0 if self.cached else 100,
+                          "output_tokens": 0 if self.cached else 20,
+                          "cache_read_tokens": 0, "cost_usd": self.cost, "latency_s": 0.5})
+
+    def __call__(self, skills, query, backend=None, model=None, usage=None):
         self.calls.append(query)
+        self.models.append(model)
         outcome = self.plan[query]
         if isinstance(outcome, Exception):
             raise outcome
+        self.__init_usage(usage, model)
         llm_scorer.last_call_info.clear()
         llm_scorer.last_call_info.update({"backend": "cli", "model": "x", "cached": self.cached})
         return rows_from(outcome, skills)
@@ -72,12 +88,16 @@ class DefaultCasesTest(unittest.TestCase):
         self.assertEqual(ev.unknown_skills(ev.default_cases(), demo_skills()), [])
 
     def test_numeros_publicados_del_set_por_defecto(self):
-        # README: baseline 63.2/63.2, +conceptos 84.2/89.5. Si cambias el scorer o
-        # concepts.py a propósito, actualiza también el README y este test.
+        # Antes: baseline 63.2/63.2, +conceptos 84.2/89.5. +conceptos pasó a 94.7/94.7
+        # por los arreglos del núcleo (normalize_query y conceptos en skill_router.py
+        # y concepts.py), no por cambios en el set ni en eval.py: valores copiados de
+        # la salida real de `python3 eval.py --compare`. Ya no hay empates en el #1
+        # en este set, así que la regla de empates (bench-2) no los altera. Si cambias
+        # el scorer o concepts.py a propósito, actualiza también el README y este test.
         base = ev.run(use_concepts=False)
         conc = ev.run(use_concepts=True)
         self.assertEqual((base["top1_accuracy"], base["top3_accuracy"]), (63.2, 63.2))
-        self.assertEqual((conc["top1_accuracy"], conc["top3_accuracy"]), (84.2, 89.5))
+        self.assertEqual((conc["top1_accuracy"], conc["top3_accuracy"]), (94.7, 94.7))
 
     def test_conceptos_no_empeoran_ningun_tipo(self):
         base = ev.run(use_concepts=False)["by_kind"]
@@ -156,6 +176,10 @@ class LoadCasesTest(TempDirTestCase):
         # En Python True == 1, pero en el JSON `true` no es la versión 1.
         self.load_error({"version": True, "cases": [case("q", [], "negativo")]})
 
+    def test_version_float_no_es_1(self):
+        self.assertIn("versión", self.load_error({"version": 1.0, "cases": [case("q", [], "negativo")]}))
+        self.assertEqual(len(ev.load_cases(self.write({"version": 1, "cases": [case("q", [], "negativo")]}))[0]), 1)
+
     def test_archivos_invalidos(self):
         self.assertIn("no es JSON", self.load_error("{rota"))
         self.load_error("[1, 2]")
@@ -184,7 +208,7 @@ class EvalOneSemanticsTest(NoRealLLMMixin, unittest.TestCase):
         self.skills = demo_skills()
 
     def judge(self, scores, expected, top=3, threshold=15):
-        with mock.patch.object(llm_scorer, "llm_score", side_effect=lambda s, q: rows_from(scores, s)):
+        with mock.patch.object(llm_scorer, "llm_score", side_effect=lambda s, q, **kw: rows_from(scores, s)):
             return ev.eval_one(self.skills, "q", expected, True, top, threshold, use_llm=True)
 
     def test_expected_multiple_cualquiera_vale_como_top1(self):
@@ -410,6 +434,245 @@ class MainTest(NoRealLLMMixin, TempDirTestCase):
         self.assertEqual(data["llm"]["top1_accuracy"], 100.0)
         self.assertEqual(data["llm"]["llm_errors"], 0)
         self.assertEqual(data["baseline"]["top1_accuracy"], 63.2)
+
+# --- Empates (bench-2) ----------------------------------------------------------------------
+class TiesTest(NoRealLLMMixin, unittest.TestCase):
+    def setUp(self):
+        super().setUp()
+        self.block_real_llm()
+
+    def judge(self, scores, expected, skills=None, top=3):
+        skills = skills or demo_skills()
+        with mock.patch.object(llm_scorer, "llm_score", side_effect=lambda s, q, **kw: rows_from(scores, s)):
+            return ev.eval_one(skills, "q", expected, True, top, 15, use_llm=True)
+
+    def test_empate_en_1_da_credito_parcial_sin_mirar_el_alfabeto(self):
+        # code-review < debug alfabéticamente: antes fallaba si la esperada era debug
+        # y acertaba si era code-review. Ahora las dos valen 0.5.
+        scores = {"code-review": 17, "debug": 17}
+        self.assertEqual(self.judge(scores, ["debug"])[1:], (0.5, True))
+        self.assertEqual(self.judge(scores, ["code-review"])[1:], (0.5, True))
+        self.assertIs(self.judge(scores, ["debug", "code-review"])[1], True)  # las dos esperadas
+
+    def test_renombrar_una_skill_empatada_no_cambia_la_cifra(self):
+        cases = [case("q1", ["deep-research"]), case("q2", ["debug"])]
+        plan = {"q1": {"deep-research": 17, "estudio-a-medida": 17}, "q2": {"code-review": 17, "debug": 17}}
+        renamed = [Skill("zz-research" if s.name == "deep-research" else s.name, s.description)
+                   for s in demo_skills()]
+        plan2 = {"q1": {"zz-research": 17, "estudio-a-medida": 17}, "q2": plan["q2"]}
+        cases2 = [case("q1", ["zz-research"]), case("q2", ["debug"])]
+        with mock.patch.object(llm_scorer, "llm_score", side_effect=FakeLLM(plan)):
+            a = ev.run(use_concepts=True, use_llm=True, cases=cases)
+        with mock.patch.object(llm_scorer, "llm_score", side_effect=FakeLLM(plan2)):
+            b = ev.run(use_concepts=True, use_llm=True, cases=cases2, skills=renamed)
+        self.assertEqual(a["top1_accuracy"], 50.0)
+        self.assertEqual(b["top1_accuracy"], a["top1_accuracy"])
+        self.assertEqual(a["diagnostics"]["ties_at_top1"], 2)
+        self.assertEqual(a["diagnostics"]["failures"], {"empate_en_1": 2})
+        self.assertTrue(a["details"][0]["tie_at_top1"])
+
+    def test_empate_en_el_corte_del_top3(self):
+        # 4 skills a 50 y solo caben 3: la esperada entra con probabilidad 3/4.
+        scores = {"code-review": 50, "debug": 50, "deep-research": 50, "guiones-video": 50}
+        got, h1, h3 = self.judge(scores, ["guiones-video"])
+        self.assertNotIn("guiones-video", got)
+        self.assertEqual((h1, h3), (0.25, 0.75))
+        # sin empate en el corte, top-3 sigue siendo bool
+        self.assertIs(self.judge({"debug": 80, "code-review": 50}, ["code-review"])[2], True)
+
+
+# --- Diagnóstico del ranking, multi y sobre-recomendación (bench-1, bench-3) -------------------
+class DiagnosticsTest(NoRealLLMMixin, unittest.TestCase):
+    def setUp(self):
+        super().setUp()
+        self.block_real_llm()
+
+    def run_plan(self, plan, cases):
+        with mock.patch.object(llm_scorer, "llm_score", side_effect=FakeLLM(plan)):
+            return ev.run(use_concepts=True, use_llm=True, cases=cases)
+
+    def test_ranking_bruto_separado_de_la_abstencion(self):
+        plan = {"a": {"debug": 10},                       # #1 correcta pero bajo el umbral
+                "b": {"code-review": 40, "debug": 20},    # #2 (MRR 0.5), recomendada en top-3
+                "c": {},                                  # sin señal
+                "d": {"debug": 30},                       # negativo con falso positivo
+                "e": {}}                                  # negativo bien
+        cases = [case("a", ["debug"]), case("b", ["debug"]), case("c", ["debug"]),
+                 case("d", [], "negativo"), case("e", [], "negativo")]
+        rep = self.run_plan(plan, cases)
+        dg = rep["diagnostics"]
+        self.assertEqual(rep["top1_accuracy"], 20.0)        # la métrica principal no cambia
+        self.assertEqual(dg["hit1_rank"], 33.3)             # 1 de 3 positivos
+        self.assertEqual(dg["mrr"], 0.5)                    # (1 + 0.5 + 0) / 3
+        self.assertEqual(dg["false_positive_rate"], 50.0)
+        self.assertEqual(dg["abstain_rate"], 66.7)
+        self.assertEqual(dg["failures"], {"abstuvo_con_1_correcta": 1, "ranking_incorrecto": 1,
+                                          "sin_senal": 1, "falso_positivo": 1})
+        self.assertEqual(dg["by_kind"]["negativo"]["false_positive_rate"], 50.0)
+        self.assertNotIn("hit1_rank", rep["by_kind"]["directo"])  # by_kind intacto
+
+    def test_multi_completa_exige_todas_las_intenciones(self):
+        plan = {"a": {"guiones-video": 80}, "b": {"guiones-video": 80, "deep-research": 60}}
+        cases = [case("a", ["guiones-video", "deep-research"], "multi"),
+                 case("b", ["guiones-video", "deep-research"], "multi")]
+        rep = self.run_plan(plan, cases)
+        self.assertEqual(rep["top1_accuracy"], 100.0)       # "al menos una" en los dos
+        self.assertEqual(rep["diagnostics"]["multi_complete"], 50.0)
+        self.assertEqual(rep["diagnostics"]["by_kind"]["multi"]["multi_cases"], 2)
+
+    def test_precision_de_las_recomendaciones(self):
+        plan = {"a": {"debug": 90, "code-review": 80, "deep-research": 70}, "b": {"debug": 90}}
+        rep = self.run_plan(plan, [case("a", ["debug"]), case("b", ["debug"])])
+        self.assertEqual(rep["top1_accuracy"], 100.0)
+        self.assertEqual(rep["diagnostics"]["rec_precision"], 50.0)  # 2 de 4
+        self.assertEqual(rep["diagnostics"]["avg_recommended"], 2.0)
+
+
+# --- Economía de tokens -------------------------------------------------------------------------
+class EconomyTest(NoRealLLMMixin, unittest.TestCase):
+    def setUp(self):
+        super().setUp()
+        self.block_real_llm()
+
+    def test_llm_tokens_coste_latencia_y_eficiencia(self):
+        fake = FakeLLM({"a": {"debug": 90}, "b": {}}, cost=0.01)
+        with mock.patch.object(llm_scorer, "llm_score", side_effect=fake):
+            rep = ev.run(use_concepts=True, scorer="llm", model="claude-haiku-5-5",
+                         cases=[case("a", ["debug"]), case("b", ["debug"])])
+        eco = rep["economy"]
+        self.assertEqual(fake.models, ["claude-haiku-5-5"] * 2)
+        self.assertEqual((eco["llm_calls"], eco["input_tokens"], eco["output_tokens"]), (2, 200, 40))
+        self.assertEqual((eco["input_tokens_per_query"], eco["output_tokens_per_query"]), (100.0, 20.0))
+        self.assertEqual(eco["cost_usd"], 0.02)
+        self.assertEqual(eco["avg_latency_s"], 0.5)
+        self.assertEqual(eco["top1_per_1k_tokens"], round(1000 * 1 / 240, 2))
+        self.assertIsNone(eco["llm_avoided_pct"])
+        self.assertEqual(eco["model"], "claude-haiku-5-5")
+
+    def test_campo_none_sale_como_nd(self):
+        fake = FakeLLM({"a": {"debug": 90}})  # cost=None: el backend no informa el coste
+        with mock.patch.object(llm_scorer, "llm_score", side_effect=fake):
+            rep = ev.run(use_concepts=True, use_llm=True, cases=[case("a", ["debug"])])
+        self.assertIsNone(rep["economy"]["cost_usd"])
+        cells = dict(zip(ev._ROWS, ev._metric_rows(rep)))
+        self.assertEqual(cells["coste"], "n/d")
+        self.assertEqual(cells["tokens entrada"], "100")
+        self.assertEqual(ev._nd(None), "n/d")
+
+    def test_cascada_cuenta_llamadas_evitadas(self):
+        q_clear = "revisa este pull request por bugs de seguridad"  # el léxico basta
+        q_doubt = "algo raro pasa con lo mío"                        # el léxico duda
+        fake = FakeLLM({q_doubt: {"debug": 90}})
+        with mock.patch.object(llm_scorer, "llm_score", side_effect=fake):
+            rep = ev.run(use_concepts=True, scorer="cascade", model="claude-haiku-5-5",
+                         cases=[case(q_clear, ["code-review"]), case(q_doubt, ["debug"])])
+        eco = rep["economy"]
+        self.assertEqual(fake.calls, [q_doubt])
+        self.assertEqual((eco["llm_calls"], eco["llm_avoided_pct"]), (1, 50.0))
+        self.assertEqual((eco["input_tokens"], eco["output_tokens"]), (100, 20))
+        self.assertEqual(eco["input_tokens_per_query"], 50.0)
+        self.assertEqual(rep["top1_accuracy"], 100.0)
+        self.assertEqual([d["used_llm"] for d in rep["details"]], [False, True])
+
+    def test_cascada_con_llm_caido_usa_el_lexico_y_cuenta_el_error(self):
+        q = "algo raro pasa con lo mío"
+        with mock.patch.object(llm_scorer, "llm_score", side_effect=FakeLLM({q: LLMUnavailable("x")})):
+            rep = ev.run(use_concepts=True, scorer="cascade", cases=[case(q, [], "negativo")])
+        self.assertEqual(rep["llm_errors"], 1)
+        self.assertEqual(rep["top1_accuracy"], 100.0)  # respaldo léxico: no recomienda nada
+
+    def test_resolve_models(self):
+        self.assertEqual(ev.resolve_models("opus, haiku,opus"), ["claude-opus-5-5", "claude-haiku-5-5"])
+        self.assertEqual(ev.resolve_models("claude-x-1"), ["claude-x-1"])
+        self.assertEqual(ev.resolve_models(None), [])
+
+
+class CompareEconomyCLITest(NoRealLLMMixin, TempDirTestCase):
+    def setUp(self):
+        super().setUp()
+        self.block_real_llm()
+        self.plan = {c["query"]: ({c["expected"][0]: 90} if c["expected"] else {})
+                     for c in ev.default_cases()}
+
+    def main(self, *argv):
+        fake = FakeLLM(self.plan, cost=0.001)
+        with mock.patch.object(llm_scorer, "available_backend", return_value="cli"), \
+                mock.patch.object(llm_scorer, "llm_score", side_effect=fake), \
+                captured_output() as (out, err):
+            code = ev.main(list(argv))
+        return code, out.getvalue(), err.getvalue(), fake
+
+    def test_una_sola_tabla_con_cascada_y_un_llm_por_modelo(self):
+        code, out, err, fake = self.main("--compare", "--llm", "--cascade", "--llm-models", "opus,haiku")
+        self.assertEqual(code, 0, err)
+        header = next(line for line in out.splitlines() if "baseline" in line and "+conceptos" in line)
+        for label in ("cascada", "LLM opus", "LLM haiku"):
+            self.assertIn(label, header)
+        for row in ("llamadas al LLM", "tokens entrada", "tokens/consulta", "coste", "top-1 por 1k tokens"):
+            self.assertEqual(sum(1 for line in out.splitlines() if line.strip().startswith(row)), 1, row)
+        self.assertIn("evit.", out)
+        self.assertIn("claude-haiku-5-5", fake.models)
+        self.assertIn("claude-opus-5-5", fake.models)
+
+    def test_json_anade_campos_sin_quitar(self):
+        code, out, err, _ = self.main("--compare", "--llm", "--cascade", "--llm-models", "opus,haiku", "--json")
+        self.assertEqual(code, 0, err)
+        data = json.loads(out)
+        self.assertTrue({"cases", "baseline", "concepts", "llm", "cascade", "llm_models"} <= set(data))
+        self.assertEqual(list(data["llm_models"]), ["claude-opus-5-5", "claude-haiku-5-5"])
+        self.assertEqual(data["llm"]["top1_accuracy"], 100.0)
+        self.assertIn("economy", data["cascade"])
+        self.assertIsNotNone(data["cascade"]["economy"]["llm_avoided_pct"])
+        self.assertIn("diagnostics", data["baseline"])
+        self.assertNotIn("economy", data["baseline"])
+
+    def test_cascada_sin_backend_sale_con_2(self):
+        with mock.patch.object(llm_scorer, "available_backend", return_value=None), \
+                captured_output() as (_, err):
+            self.assertEqual(ev.main(["--cascade"]), 2)
+        self.assertIn("--cascade", err.getvalue())
+
+
+# --- Independencia y set de estrés (bench-5, tarea 9) ----------------------------------------------
+class IndependenceAndStressTest(TempDirTestCase):
+    def test_similar_pairs_detecta_casi_duplicados_del_inline(self):
+        cases = [case("tengo este stack trace y no sé de dónde sale el error, ayúdame a diagnosticarlo", ["debug"]),
+                 case("receta de tortilla", [], "negativo")]
+        pairs = ev.similar_pairs(cases, ev.default_cases())
+        self.assertEqual(len(pairs), 1)
+        self.assertGreaterEqual(pairs[0][0], 0.3)
+        dup = [case("revisa mi codigo", ["code-review"]), case("Revisa mi  codigo", ["code-review"])]
+        self.assertEqual(ev.similar_pairs(dup), [(1.0, "revisa mi codigo", "Revisa mi  codigo")])
+        self.assertEqual(ev.similar_pairs([case("ok", []), case("ok", [])]), [(1.0, "ok", "ok")])
+
+    def test_aviso_en_la_cli(self):
+        p = self.tmp / "c.json"
+        p.write_text(json.dumps({"version": 1, "cases": [case("hola, como estas hoy", [], "negativo")]}),
+                     encoding="utf-8")
+        with captured_output() as (_, err):
+            self.assertEqual(ev.main(["--cases", str(p), "--json"]), 0)
+        self.assertIn("casi duplicado del set inline", err.getvalue())
+
+    def test_make_stress_es_determinista_y_conserva_etiquetas(self):
+        sys.path.insert(0, str(Path(ev.__file__).resolve().parent / "bench"))
+        import make_stress
+        src = json.loads((Path(ev.__file__).resolve().parent / "bench" / "heldout.json").read_text(encoding="utf-8"))
+        a, b = make_stress.build(src), make_stress.build(src)
+        self.assertEqual(a, b)
+        self.assertEqual(len(a["cases"]), 3 * len(src["cases"]))
+        for i, orig in enumerate(src["cases"]):
+            group = a["cases"][3 * i: 3 * i + 3]
+            self.assertEqual([c["variant"] for c in group], ["traceback", "contexto", "pegado"])
+            for c in group:
+                self.assertEqual((c["expected"], c["kind"]), (orig["expected"], orig["kind"]))
+                self.assertIn(orig["query"], c["query"])
+            self.assertIn("<pasted_content>", group[2]["query"])
+        out = self.tmp / "s.json"
+        with captured_output():
+            make_stress.main([str(Path(ev.__file__).resolve().parent / "bench" / "heldout.json"), str(out)])
+        cases, warnings = ev.load_cases(out)
+        self.assertEqual(len(cases), len(a["cases"]))
+        self.assertEqual(warnings, [])
 
 
 if __name__ == "__main__":

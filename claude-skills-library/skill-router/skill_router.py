@@ -113,7 +113,7 @@ class Skill:
 # Lo pegado (código, trazas, logs) no es la petición: si se puntúa, cada
 # identificador desconocido suma al denominador del score y la skill que encaja
 # con lo que el usuario TECLEÓ queda por debajo del umbral.
-_PASTED_BLOCK = re.compile(r"<pasted_content\b[^>]*>.*?(?:</pasted_content\s*>|\Z)",
+_PASTED_BLOCK = re.compile(r"<pasted_content\b[^>]*>.*?(?:</pasted_content\b[^>]*>|\Z)",
                            re.S | re.I)
 _PASTED_TAG = re.compile(r"</?pasted_content\b[^>]*>", re.I)
 _FENCE = re.compile(r"^[ \t]*(`{3,}|~{3,})")

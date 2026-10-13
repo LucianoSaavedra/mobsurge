@@ -29,12 +29,13 @@ está preaprobada y no pide permiso al usuario.
    python3 ${CLAUDE_SKILL_DIR}/run_router.py --json 'TEXTO DE LA TAREA'
    ```
 
-   Sin más flags usa las skills de `~/.claude/skills`; si no hay, el catálogo
-   `skills.json`. Flags útiles:
+   Sin más flags usa las mismas skills que el hook: las de `~/.claude/skills` más
+   las del proyecto (`.claude/skills` desde el directorio actual subiendo hasta la
+   raíz git), sin contar esta skill. Si no hay ninguna, el catálogo `skills.json`.
+   Flags útiles:
    - `--llm`: usa Claude como scorer (más preciso, tarda segundos). Úsalo si el
      usuario pide más precisión o si el resultado léxico no tiene sentido.
-   - `--skills-dir RUTA`: otra carpeta de skills (por ejemplo `.claude/skills` del
-     proyecto).
+   - `--skills-dir RUTA`: solo las skills de esa carpeta, en vez de las de arriba.
    - `--top N` y `--threshold N`: cuántas recomendar (def. 3) y puntuación mínima
      (def. 15).
 3. Lee el JSON:
@@ -69,5 +70,6 @@ del umbral.
 - "No encuentro skill_router.py": la carpeta de la skill se copió en vez de
   enlazarse. Dile al usuario que la enlace con `ln -s` o que defina
   `SKILL_ROUTER_HOME=/ruta/a/skill-router`.
-- "No encontre skills": pasa `--demo` para enseñar el funcionamiento con las 6
-  skills de ejemplo, avisando de que no son las suyas.
+- "No encontre skills" (no hay skills instaladas ni catálogo): pasa `--demo` para
+  enseñar el funcionamiento con las 6 skills de ejemplo, avisando de que no son
+  las suyas.
