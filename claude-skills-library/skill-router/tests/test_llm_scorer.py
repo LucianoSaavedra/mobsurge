@@ -628,6 +628,20 @@ class CliIsolationTest(unittest.TestCase):
         _, argv, _ = self.run_cli()
         self.assertTrue(argv[argv.index("--tools") + 2].startswith("--"))
 
+    def test_hijo_sin_trafico_no_esencial(self):
+        # Sin esta variable el CLI hace una petición auxiliar que casi duplica el coste.
+        _, _, kw = self.run_cli()
+        self.assertEqual(kw["env"]["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"], "1")
+
+    def test_modelo_por_defecto_es_haiku(self):
+        # En un proceso aparte: recargar el módulo aquí rompería las clases que usan otros tests.
+        env = {k: v for k, v in os.environ.items() if k != "SKILL_ROUTER_MODEL"}
+        out = subprocess.run(
+            [sys.executable, "-c", "import llm_scorer; print(llm_scorer.DEFAULT_MODEL)"],
+            cwd=str(Path(llm_scorer.__file__).parent), env=env,
+            capture_output=True, text=True, check=True).stdout.strip()
+        self.assertEqual(out, "claude-haiku-5-5")
+
     def test_hijo_con_guardia_y_cwd_neutro(self):
         _, _, kw = self.run_cli()
         self.assertEqual(kw["env"]["SKILL_ROUTER_CHILD"], "1")
@@ -940,7 +954,8 @@ class UsageContractTest(NoRealLLMMixin, TempDirTestCase):
             self.assertEqual(cli.call_count, 1)
             self.assertEqual((usage["cached"], usage["input_tokens"], usage["output_tokens"],
                               usage["cache_read_tokens"], usage["cost_usd"]), (True, 0, 0, 0, 0.0))
-            llm_score(self.skills, "q", backend="cli", model="claude-haiku-5-5")
+            # otro modelo distinto del de por defecto (Haiku) -> otra clave de caché
+            llm_score(self.skills, "q", backend="cli", model="claude-opus-5-5")
             self.assertEqual(cli.call_count, 2)
             os.environ[llm_scorer.EFFORT_ENV] = "high"
             llm_score(self.skills, "q", backend="cli")

@@ -124,3 +124,38 @@ defecto si consigue top-1 ≥ 97% y negativos ≥ 90% en el held-out, con ahorro
 **Al retomar:** revisar qué dejó cada workflow (`git diff` desde `fd9b963`), relanzar
 los dos workflows desde `.work/` (los agentes deben partir del estado actual), pasar las
 suites, medir Opus vs Haiku vs cascada en el held-out y escribir `GUIA-DE-USO.md`.
+
+## ✅ Sesión 1 terminada (arreglos + medición de tokens)
+
+Todas las suites en verde (núcleo y integración). Los 27 hallazgos de la revisión
+están aplicados, salvo los de documentación (sesión 2).
+
+**Benchmark independiente** (`bench/heldout.json`, 60 casos, top-1 / negativos):
+
+| Modo | Top-1 | Negativos | Tokens entrada/consulta |
+|---|---|---|---|
+| Léxico | 36.7% | 80% | 0 |
+| +Conceptos | 43.3% | 50% | 0 |
+| Cascada (Haiku, high=60 margin=20) | 98.3% | 100% | ~3.080 (solo 8% de llamadas evitadas) |
+| LLM Opus 5.5 | 100% | 100% | no medido con el código nuevo |
+| **LLM Haiku 5.5** | **100%** | **100%** | **~1.570** tras el ajuste de abajo |
+
+Decisiones tomadas con datos:
+- **Haiku pasa a ser el modelo por defecto** del router: acierta igual que Opus y gasta menos.
+- `claude -p` hacía una petición auxiliar escondida (~1.200 tokens). Con
+  `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` en el proceso hijo el coste por consulta
+  baja ~42% y los tokens de entrada ~49% (medido). El CLI mantiene una base fija de
+  ~1.070 tokens por llamada que no se cachea; con SDK + API key serían ~310.
+- La cascada actual no compensa (evita solo el 8%). No es la opción por defecto.
+
+**Decisión pendiente para la sesión 2:** modo por defecto del hook. `lexical` es gratis
+pero acierta poco. `llm` con Haiku acierta el 100%, pero añade ~2 s y ~1.600 tokens de
+Haiku por mensaje. Resultados en `.work/heldout_haiku_cascade.json`.
+
+## Plan de la sesión 2
+1. Plugin automático (autopilot): `.work/workflow-autopilot.js`. Se instala una vez; por
+   proyecto detecta el tipo, instala skills curadas, deduplica y reporta el ahorro.
+2. Prueba de punta a punta.
+3. `GUIA-DE-USO.md`.
+4. PITCH.md y README con los números finales: el +21 del set pequeño ya no aplica; la
+   historia es "Haiku acierta 60/60".
