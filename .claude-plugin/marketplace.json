@@ -1,0 +1,14 @@
+{
+  "name": "mobsurge-skills",
+  "owner": {
+    "name": "mobsurge"
+  },
+  "description": "Skills curadas y Skill Router para Claude Code",
+  "plugins": [
+    {
+      "name": "skill-router",
+      "source": "./claude-skills-library",
+      "description": "Router y autoinstalador de skills curadas"
+    }
+  ]
+}

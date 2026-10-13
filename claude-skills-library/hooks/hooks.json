@@ -1,0 +1,29 @@
+{
+  "description": "Skill Router: autoinstala skills curadas y recomienda una por mensaje",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}\"/autopilot/bootstrap.py",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "SKILL_ROUTER_HOOK_MODE=\"${SKILL_ROUTER_HOOK_MODE:-llm}\" python3 \"${CLAUDE_PLUGIN_ROOT}\"/skill-router/integration/hooks/route_prompt.py",
+            "timeout": 30,
+            "statusMessage": "Skill Router: eligiendo skill..."
+          }
+        ]
+      }
+    ]
+  }
+}

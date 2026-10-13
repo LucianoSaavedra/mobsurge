@@ -1,0 +1,8 @@
+{
+  "name": "skill-router",
+  "version": "0.1.0",
+  "description": "Detecta el tipo de proyecto, instala skills curadas en .claude/skills y recomienda la skill adecuada en cada mensaje",
+  "author": { "name": "mobsurge" },
+  "license": "MIT",
+  "keywords": ["skills", "router", "autopilot", "tokens"]
+}

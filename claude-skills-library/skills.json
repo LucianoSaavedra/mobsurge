@@ -6,25 +6,28 @@
     "base": {
       "title": "Colecciones base (empieza por aqui)",
       "description": "Lo oficial y las colecciones comunitarias grandes. Instala selectivamente, no todo.",
+      "signals": {"kind:documents": 3, "kind:data": 2},
       "repos": [
-        { "name": "anthropics-skills", "url": "https://github.com/anthropics/skills", "trust": "oficial", "about": "Repo oficial de Anthropic: PDFs, hojas de calculo, presentaciones, skill-creator." },
-        { "name": "composio-awesome", "url": "https://github.com/ComposioHQ/awesome-claude-skills", "trust": "comunidad-popular", "about": "Coleccion comunitaria grande: integraciones SaaS, documentos, automatizacion." },
-        { "name": "behisecc-awesome", "url": "https://github.com/BehiSecc/awesome-claude-skills", "trust": "comunidad", "about": "Lista curada muy popular (~8.4k estrellas)." }
+        { "name": "anthropics-skills", "url": "https://github.com/anthropics/skills", "trust": "oficial", "about": "Repo oficial de Anthropic: PDFs, hojas de calculo, presentaciones, skill-creator.", "tags": ["documentos", "pdf", "docx", "xlsx", "pptx"] },
+        { "name": "composio-awesome", "url": "https://github.com/ComposioHQ/awesome-claude-skills", "trust": "comunidad-popular", "about": "Coleccion comunitaria grande: integraciones SaaS, documentos, automatizacion.", "tags": ["coleccion-grande", "integraciones"] },
+        { "name": "behisecc-awesome", "url": "https://github.com/BehiSecc/awesome-claude-skills", "trust": "comunidad", "about": "Lista curada muy popular (~8.4k estrellas).", "tags": ["coleccion-grande", "lista"] }
       ]
     },
     "ingenieria": {
       "title": "Ingenieria / rendimiento de codigo",
       "description": "Metodologia, revision de codigo y pruebas de verdad.",
+      "signals": {"kind:code": 2},
       "repos": [
-        { "name": "superpowers", "url": "https://github.com/obra/superpowers", "trust": "comunidad-recomendada", "about": "Brainstorm -> spec -> worktrees git aislados -> TDD. La #1 de la comunidad." },
-        { "name": "everything-claude-code", "url": "https://github.com/affaan-m/everything-claude-code", "trust": "comunidad", "about": "Agentes + muchas skills + slash commands + hooks." }
+        { "name": "superpowers", "url": "https://github.com/obra/superpowers", "trust": "comunidad-recomendada", "about": "Brainstorm -> spec -> worktrees git aislados -> TDD. La #1 de la comunidad.", "tags": ["metodologia", "tdd", "revision-codigo"] },
+        { "name": "everything-claude-code", "url": "https://github.com/affaan-m/everything-claude-code", "trust": "comunidad", "about": "Agentes + muchas skills + slash commands + hooks.", "tags": ["coleccion-grande", "agentes", "hooks"] }
       ]
     },
     "ia_productividad": {
       "title": "IA / productividad",
       "description": "Crear tus propias skills y mejorar el flujo con Claude.",
+      "signals": {"kind:skills-dev": 3},
       "repos": [
-        { "name": "skill-creator", "url": "https://github.com/anthropics/skills", "trust": "oficial", "about": "Fabrica skills a tu medida (dentro del repo oficial)." }
+        { "name": "skill-creator", "url": "https://github.com/anthropics/skills", "trust": "oficial", "about": "Fabrica skills a tu medida (dentro del repo oficial).", "tags": ["skill-creator"] }
       ],
       "manual": [
         { "name": "Context7 (MCP)", "about": "Mete documentacion de APIs con version al contexto. Se instala como MCP, no como skill. Ver README." },
@@ -34,8 +37,9 @@
     "estudio": {
       "title": "Estudio / calificaciones",
       "description": "Investigacion profunda + generacion de material de estudio.",
+      "signals": {"topic:study": 3, "kind:documents": 1},
       "repos": [
-        { "name": "anthropics-skills", "url": "https://github.com/anthropics/skills", "trust": "oficial", "about": "docx/pdf/pptx para resumenes, fichas y presentaciones + skill-creator para tu temario." }
+        { "name": "anthropics-skills", "url": "https://github.com/anthropics/skills", "trust": "oficial", "about": "docx/pdf/pptx para resumenes, fichas y presentaciones + skill-creator para tu temario.", "tags": ["documentos", "pdf", "docx", "pptx"] }
       ],
       "manual": [
         { "name": "deep-research (ya incluida)", "about": "Investigacion multi-fuente sintetizada. Suele venir en tu entorno." }
@@ -44,28 +48,32 @@
     "video_viral": {
       "title": "Video para viralizar (Reels / Shorts / TikTok)",
       "description": "Video programatico con Remotion. Vertical 1080x1920, contenido en zona segura.",
+      "signals": {"fw:remotion": 4, "topic:social": 1},
       "repos": [
-        { "name": "remotion-skills", "url": "https://github.com/remotion-dev/skills", "trust": "oficial-remotion", "about": "Skills oficiales de Remotion: componentes, animaciones, efectos." },
-        { "name": "remotion-video-skill", "url": "https://github.com/wshuyi/remotion-video-skill", "trust": "comunidad", "about": "Tutoriales, data-viz y contenido reactivo a musica, con TTS opcional." }
+        { "name": "remotion-skills", "url": "https://github.com/remotion-dev/skills", "trust": "oficial-remotion", "about": "Skills oficiales de Remotion: componentes, animaciones, efectos.", "tags": ["remotion", "video"] },
+        { "name": "remotion-video-skill", "url": "https://github.com/wshuyi/remotion-video-skill", "trust": "comunidad", "about": "Tutoriales, data-viz y contenido reactivo a musica, con TTS opcional.", "tags": ["remotion", "video", "tts"] }
       ]
     },
     "marketing": {
       "title": "Marketing para empresas",
       "description": "Conversion, copywriting, SEO, analytics, growth.",
+      "signals": {"topic:marketing": 3},
       "repos": [
-        { "name": "marketingskills", "url": "https://github.com/mysticaltech/marketingskills", "trust": "comunidad", "about": "Fork con archivos .skill listos. SEO (ai-seo), competitor-profiling, copywriting." }
+        { "name": "marketingskills", "url": "https://github.com/mysticaltech/marketingskills", "trust": "comunidad", "about": "Fork con archivos .skill listos. SEO (ai-seo), competitor-profiling, copywriting.", "tags": ["marketing", "seo", "copywriting"] }
       ]
     },
     "redes_empresas": {
       "title": "Redes sociales y gestion de empresas",
       "description": "Contenido social y operacion. Se apoya en la coleccion de marketing.",
+      "signals": {"topic:social": 3},
       "repos": [
-        { "name": "marketingskills", "url": "https://github.com/mysticaltech/marketingskills", "trust": "comunidad", "about": "Incluye social-content y skills de growth para redes." }
+        { "name": "marketingskills", "url": "https://github.com/mysticaltech/marketingskills", "trust": "comunidad", "about": "Incluye social-content y skills de growth para redes.", "tags": ["social", "marketing"] }
       ]
     },
     "estudio_mercado": {
       "title": "Estudio de mercado",
       "description": "Analisis de mercado, comparativas y sintesis.",
+      "signals": {},
       "repos": [],
       "manual": [
         { "name": "deep-research (ya incluida)", "about": "Coordina investigacion multi-fuente para analisis de mercado." }

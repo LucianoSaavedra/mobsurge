@@ -31,8 +31,9 @@ usar en ese momento** (y cuáles no). Pensado como posible proyecto para concurs
 ## Base que ya tenemos
 
 - `skills.json` — catálogo con escenarios, descripciones y nivel de confianza.
-- `install.sh` — instala y enlaza skills en `~/.claude/skills/`.
-  El Router se monta **encima** de esto; no empezamos de cero.
+- `install.sh` — instala y enlaza skills en `~/.claude/skills/` (instalador manual).
+- `skill-router/` — el router ya construido, estable y con tests.
+- `autopilot/` + plugin — instalación automática por proyecto.
 
 ## Prototipo mínimo (primer paso realista)
 
@@ -50,13 +51,30 @@ aprendizaje.
 - Correr cada una: (a) con todas las skills activas, (b) con las que elige el Router.
 - Comparar calidad (rúbrica simple) y tokens. Mostrar antes/después.
 
-## Preguntas abiertas para cuando retomemos
+## Decisiones tomadas (estado actual)
 
-- ¿Router como skill, como hook, o como MCP?
-- ¿Puntuación por el propio modelo, por embeddings, o híbrido?
-- ¿Alcance del primer prototipo: solo recomendar, o también activar/desactivar?
+Las preguntas abiertas del principio ya tienen respuesta:
+
+- **¿Skill, hook o MCP?** Plugin de Claude Code que combina un hook
+  `SessionStart` (autoinstalación por proyecto), un hook `UserPromptSubmit`
+  (recomendación por mensaje), comandos `/skill-router:*` y una skill bajo demanda.
+- **¿Puntuación por modelo, embeddings o híbrido?** Por modelo: Claude Haiku es el
+  modo por defecto. En el held-out de 60 casos acierta 100% top-1 y 100% en
+  negativos, igual que Opus; el léxico (36.7% / 80%) queda como modo gratuito y la
+  cascada (98.3% / 100%) solo evita el 8% de las llamadas.
+- **¿Solo recomendar, o también activar?** Las dos cosas, por proyecto: instala
+  pocas skills curadas en `<proyecto>/.claude/skills` (deshacible, sin tocar
+  `~/.claude/skills`) y recomienda una por mensaje.
+
+Coste medido de la recomendación con Haiku: ~1.570 tokens de entrada, $0.00035 y
+~2 s por mensaje, ~7% de un turno mínimo de Claude Code (~23.400 tokens).
 
 ## Siguiente acción
 
-En la laptop: elegir forma del prototipo (skill/hook/MCP) y construir la versión
-"solo recomienda" sobre `skills.json`.
+- Prueba con 30-50 skills reales (hasta ahora, 6 skills de demo).
+- Casos de evaluación escritos por personas (el held-out lo escribió y puntúa Claude).
+- La medición de calidad final descrita arriba (con y sin router), que sigue
+  pendiente.
+
+Más: [guía de uso](GUIA-DE-USO.md) · [pitch y resultados](skill-router/PITCH.md) ·
+[README del router](skill-router/README.md).

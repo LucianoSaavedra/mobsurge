@@ -1,26 +1,50 @@
-# 🧭 Skill Router (MVP)
+# Skill Router
 
-Una IA que, según el **contexto del chat**, decide **qué skills de Claude Code conviene
-usar en ese momento** — las rankea con puntuación y motivo, y marca las que son ruido.
+Decide, en cada mensaje, qué skill de Claude Code conviene usar (o ninguna), con
+puntuación y motivo. Es el núcleo del plugin **Skill Router**, que además instala
+pocas skills curadas en cada proyecto de forma automática.
 
-Es el prototipo del proyecto descrito en [`../IDEA-SKILL-ROUTER.md`](../IDEA-SKILL-ROUTER.md).
+- **Guía para usuarios (instalar el plugin una vez y olvidarse):** [`../GUIA-DE-USO.md`](../GUIA-DE-USO.md)
+- **Pitch, resultados medidos y demo:** [`PITCH.md`](PITCH.md)
+- **Integración en Claude Code (hook y skill):** [`integration/README.md`](integration/README.md)
+- **Benchmark independiente:** [`bench/README.md`](bench/README.md)
 
-## Por qué
+## Estado actual
 
-Cuando tienes muchas skills instaladas, el modelo se satura y elige mal (más skills =
-peor output). Falta un componente que **razone, puntúe y explique** qué usar para *este*
-mensaje, y que avise de lo que sobra.
+- Estable, con las suites de tests del núcleo y de la integración en verde.
+- **Modelo por defecto del scorer LLM: Claude Haiku** (`claude-haiku-5-5`; se
+  cambia con `SKILL_ROUTER_MODEL`).
+- El hook `integration/hooks/route_prompt.py` tiene tres modos
+  (`SKILL_ROUTER_HOOK_MODE=lexical|cascade|llm`). Usado a mano, el script usa
+  `lexical` por defecto; **el plugin lo lanza en `llm`** salvo que definas la variable.
 
-## Qué hace hoy (MVP honesto)
+## Resultados medidos
 
-- Lee tus skills desde `~/.claude/skills/` (frontmatter de cada `SKILL.md`) o desde el
-  catálogo `skills.json`.
-- Dado tu mensaje, **puntúa cada skill** (0–100) por relevancia.
-- **Recomienda** las mejores, marca el **ruido** y **explica** el motivo (términos que
-  coincidieron).
-- Sin dependencias (solo Python 3 estándar) → corre en cualquier laptop.
+Held-out (`bench/heldout.json`, 60 casos), top-1 / negativos:
 
-## Uso
+| Scorer | Top-1 | Negativos |
+|---|---|---|
+| Léxico | 36.7% | 80% |
+| Léxico + conceptos | 43.3% | 50% |
+| Cascada (Haiku si el léxico duda) | 98.3% | 100% |
+| LLM Opus 5.5 | 100% | 100% |
+| **LLM Haiku 5.5** | **100%** | **100%** |
+
+- Haiku acierta 60/60 y es el más barato: por eso es el modo por defecto del plugin.
+- La cascada solo evita el 8% de las llamadas.
+- La capa de conceptos, que en el set de desarrollo (19 casos) sube el top-1 de
+  63.2% a 94.7%, **no aguanta en el held-out**: mejora poco el top-1 y baja los
+  negativos de 80% a 50%. Ese set de 19 casos es de desarrollo, no de evaluación.
+
+Coste por consulta con Haiku vía `claude -p`: ~1.570 tokens de entrada, $0.00035 y
+~2 s (antes ~3.080 tokens; −49% de tokens y −42% de coste gracias a
+`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`). Equivale a ~7% de un turno mínimo de
+Claude Code (~23.400 tokens). Detalle en [`PITCH.md`](PITCH.md#5-economía-de-tokens).
+
+Limitaciones: los casos del held-out los escribió un agente Claude y los puntúa
+Claude (posible sesgo compartido); solo se probó con 6 skills de demo.
+
+## Uso desde la terminal
 
 ```bash
 cd skill-router
@@ -28,82 +52,58 @@ cd skill-router
 python3 skill_router.py --demo "quiero preparar mi examen de calculo"
 python3 skill_router.py --catalog ../skills.json "guion para un reel"
 python3 skill_router.py --skills-dir ~/.claude/skills "revisa este PR"
-python3 skill_router.py --json "..."     # salida JSON (para integrar)
+python3 skill_router.py --demo --llm "cuentame un chiste corto"   # scorer LLM (Haiku)
+python3 skill_router.py --conflicts --catalog ../skills.json      # skills que se solapan
+python3 skill_router.py --json "..."                              # salida JSON
 ```
 
-Sin flags, intenta `~/.claude/skills`; si no hay, usa el `skills.json` vecino; si
-tampoco, cae a skills de demo.
+Sin flags intenta `~/.claude/skills`; si no hay, usa el `skills.json` vecino; si
+tampoco, las skills de demo.
 
-## Capa de conceptos (semántica ligera)
+## Cómo funciona
 
-El baseline por palabras clave falla con sinónimos: "repasar para la prueba" no
-coincide con una skill que dice "examen". La capa de conceptos (`concepts.py`) mapea
-familias de términos a un concepto canónico (estudio, video, marketing, redes,
-revisión de código, depuración, investigación) y expande mensaje y skills con sus
-conceptos antes de puntuar. Es un recurso curado y auditable, sin modelos ni
-dependencias. Se puede apagar con `--no-concepts` para comparar.
+- **Léxico** (`skill_router.py`): tokeniza mensaje y `name + description` (sin
+  tildes ni palabras vacías ES/EN), pondera por IDF y explica con los términos
+  que coincidieron.
+- **Conceptos** (`concepts.py`): sinónimos curados que expanden mensaje y skills;
+  se apagan con `--no-concepts`.
+- **LLM** (`llm_scorer.py`): Claude elige y justifica en una frase. Usa el SDK si hay
+  `ANTHROPIC_API_KEY` y el paquete `anthropic`, o `claude -p`. Si falla, cae al léxico.
+  Caché opcional con `SKILL_ROUTER_CACHE`.
+- **Cascada** (`cascade.py`): léxico primero y LLM solo si el léxico duda.
+- **Conflictos** (`--conflicts`): similitud de coseno entre perfiles de skills.
+- **Benchmark** (`eval.py`): `--compare`, `--llm`, `--cascade`, `--model`,
+  `--llm-models`, `--cases`.
 
-## Medición (clave para la demo / premio)
+## Medición y tests
 
 ```bash
-python3 eval.py             # tabla detallada (con conceptos)
-python3 eval.py --compare   # baseline vs conceptos (el número clave)
-python3 eval.py --json
+python3 eval.py --compare                                   # set de desarrollo (19)
+python3 eval.py --cases bench/heldout.json --compare        # held-out (60), sin red
+python3 eval.py --cases bench/heldout.json --compare --llm --model haiku
+
+python3 -m unittest discover -s tests
+python3 -m unittest discover -s integration/tests
 ```
 
-El benchmark tiene 19 casos de tres tipos: **directos**, **sinónimos** (donde los
-conceptos ayudan) y **negativos** (no debe activarse ninguna skill).
+## Hoja de ruta
 
-**Resultado medido (set de demo):**
+Hecho:
 
-| Scorer        | Top-1  | Top-3  |
-|---------------|--------|--------|
-| baseline      | 63.2%  | 63.2%  |
-| **+conceptos**| 84.2%  | 89.5%  |
+- ✅ Router léxico con IDF y motivo explicable.
+- ✅ Capa de conceptos (útil en desarrollo; no mejora el held-out de forma clara).
+- ✅ Detección de conflictos.
+- ✅ Scorer LLM, con Haiku por defecto.
+- ✅ Cascada léxico → LLM.
+- ✅ Benchmark independiente de 60 casos (`bench/heldout.json`).
+- ✅ Reducción de tokens por consulta (−49%).
+- ✅ Integración: hook `UserPromptSubmit` con modos y guardia `SKILL_ROUTER_CHILD`, y skill bajo demanda.
+- ✅ Plugin de Claude Code con autopilot (detectar, planificar, instalar por proyecto, deduplicar, estimar ahorro, `status`, `undo`): ver [`../GUIA-DE-USO.md`](../GUIA-DE-USO.md).
 
-La capa de conceptos mejora el top-1 en **+21 puntos**. Ese antes/después es lo que se
-enseña en la demo.
+Pendiente:
 
-> **Honestidad sobre los resultados:** es un set pequeño y hecho por nosotros, así que
-> estos números orientan pero **no** prueban calidad general. Hay fallos reales que
-> dejamos a la vista a propósito: un caso de estudio que se queda bajo el umbral, un
-> falso positivo ("chiste corto" → video por la palabra "corto"), y skills que a veces
-> aparecen juntas en top-3. El valor real se vería con más casos, skills reales y un
-> scorer más fuerte (embeddings/LLM).
-
-## Cómo se decide la puntuación (transparente)
-
-1. Se tokeniza el mensaje y el `nombre + descripción` de cada skill (minúsculas, sin
-   acentos, sin stopwords ES/EN).
-2. Cada término pesa por **IDF** (los términos raros e informativos pesan más que los
-   comunes).
-3. `score = 100 × (IDF de términos que coinciden) / (IDF de todos los términos del
-   mensaje)`.
-4. Se recomienda si supera el umbral (`--threshold`, def. 15) y entra en el top
-   (`--top`, def. 3). El resto es "ruido".
-
-## Detección de conflictos
-
-Skills que se solapan confunden al router (compiten siempre para lo mismo). El modo
-`--conflicts` compara los perfiles de términos+conceptos de cada par de skills por
-similitud de coseno y lista las parejas redundantes:
-
-```bash
-python3 skill_router.py --conflicts --demo
-python3 skill_router.py --conflicts --catalog ../skills.json
-```
-
-En el catálogo real detecta, por ejemplo, `remotion-skills ⇄ remotion-video-skill`
-(0.69) — hacen casi lo mismo; conviene dejar una activa.
-
-## Siguientes pasos (hoja de ruta)
-
-- ✅ **Capa de conceptos** — sinónimos por recurso curado (+21 pts top-1). *Hecho.*
-- ✅ **Detección de conflictos** — skills que compiten o se solapan. *Hecho.*
-- **Scorer por embeddings** — capturar significado automáticamente, sin listas a mano.
-- **Scorer LLM** — pedir a Claude que elija y justifique (modo de alta calidad).
-- **Aprendizaje** — ajustar según lo que al usuario le funciona.
-- **Integración** — exponerlo como hook/slash-command dentro de Claude Code.
-
-El diseño deja el *scorer* aislado para enchufar cualquiera de estos sin reescribir el
-resto.
+- ⏳ Prueba con 30-50 skills reales (descripciones largas, en inglés).
+- ⏳ Casos de evaluación escritos por personas (quitar el sesgo compartido).
+- ⏳ A/B de calidad final: mismas tareas con y sin router.
+- ⏳ Backend SDK con API key como opción (base fija ~310 tokens frente a ~1.070 del CLI).
+- ⏳ Aprendizaje según lo que el usuario acepta o descarta.

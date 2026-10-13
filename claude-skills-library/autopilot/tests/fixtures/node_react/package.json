@@ -1,0 +1,1 @@
+{"name": "web", "version": "1.0.0", "dependencies": {"react": "^18.3.1", "react-dom": "^18.3.1"}, "devDependencies": {"vite": "^5.0.0", "typescript": "^5.4.0"}}

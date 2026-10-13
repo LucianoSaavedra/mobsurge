@@ -8,7 +8,23 @@ marketing y redes, y estudio de mercado.
 > En una sesión en la nube las instalaciones son temporales; por eso esto está
 > versionado en git: lo bajas y lo corres donde los cambios se quedan.
 
-## ⚡ Uso rápido
+## 🚀 Recomendado: el plugin Skill Router (automático)
+
+Se instala **una sola vez** como plugin de Claude Code y, desde ahí, en cada
+proyecto: detecta el tipo de proyecto, instala **solo en ese proyecto**
+(`<proyecto>/.claude/skills`) unas pocas skills de este catálogo, sin duplicados ni
+scripts ejecutables, informa del ahorro de tokens y, en cada mensaje, recomienda la
+skill adecuada (por defecto con Claude Haiku). Todo se deshace y nunca toca
+`~/.claude/skills`.
+
+- 👉 **Cómo instalarlo y usarlo:** [`GUIA-DE-USO.md`](./GUIA-DE-USO.md)
+- 📊 **Resultados medidos y pitch:** [`skill-router/PITCH.md`](./skill-router/PITCH.md)
+- 🧭 **Detalle técnico del router:** [`skill-router/README.md`](./skill-router/README.md)
+
+El instalador manual de abajo (`install.sh`) sigue disponible si prefieres
+instalar escenarios completos a mano en `~/.claude/skills`.
+
+## ⚡ Uso rápido (instalador manual)
 
 ```bash
 cd claude-skills-library
@@ -112,6 +128,25 @@ el README de cada proyecto. `deep-research` suele venir ya incluida en tu entorn
   sobre todo si traen scripts.
 - **Confianza.** En `skills.json` cada repo tiene un campo `trust` (`oficial`,
   `comunidad-popular`, `comunidad`). Prioriza lo oficial.
+
+## 📍 Estado y hoja de ruta
+
+Estado actual: el router es estable y Haiku es su modelo por defecto; las suites de
+tests del núcleo, de la integración y del autopilot están en verde.
+
+| Pieza | Estado |
+|---|---|
+| Catálogo curado `skills.json` (con `trust`, señales y tags) | ✅ Hecho |
+| Instalador manual `install.sh` | ✅ Hecho |
+| Skill Router: léxico, conceptos, LLM (Haiku), cascada, conflictos, benchmark | ✅ Hecho |
+| Hook `UserPromptSubmit` y skill bajo demanda | ✅ Hecho |
+| Plugin con autopilot (detectar, planificar, instalar por proyecto, deduplicar, ahorro, `status`/`undo`) | ✅ Hecho |
+| Benchmark held-out de 60 casos: Haiku 100% top-1 / 100% negativos | ✅ Medido |
+| Prueba con 30-50 skills reales | ⏳ Pendiente |
+| Casos de evaluación escritos por personas (el held-out lo escribió y puntúa Claude) | ⏳ Pendiente |
+| A/B de calidad final con y sin router | ⏳ Pendiente |
+
+Cifras y limitaciones completas en [`skill-router/PITCH.md`](./skill-router/PITCH.md).
 
 ## 🔎 Fuentes
 
