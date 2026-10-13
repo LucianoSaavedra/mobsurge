@@ -17,6 +17,15 @@ scripts ejecutables, informa del ahorro de tokens y, en cada mensaje, recomienda
 skill adecuada (por defecto con Claude Haiku). Todo se deshace y nunca toca
 `~/.claude/skills`.
 
+```bash
+git clone https://github.com/LucianoSaavedra/mobsurge.git ~/mobsurge
+cd ~/mobsurge && git checkout claude/skills-repos-research-k788cw
+claude plugin marketplace add ~/mobsurge
+claude plugin install skill-router@mobsurge-skills
+```
+
+Cuando el PR #1 esté en `main`: `/plugin install skill-router --marketplace LucianoSaavedra/mobsurge`.
+
 - 👉 **Cómo instalarlo y usarlo:** [`GUIA-DE-USO.md`](./GUIA-DE-USO.md)
 - 📊 **Resultados medidos y pitch:** [`skill-router/PITCH.md`](./skill-router/PITCH.md)
 - 🧭 **Detalle técnico del router:** [`skill-router/README.md`](./skill-router/README.md)

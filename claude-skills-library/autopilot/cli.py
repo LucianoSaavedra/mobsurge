@@ -17,6 +17,11 @@ Archivos propios del autopilot, junto a state.json (que escribe install):
                                                   y "disabled": true tras undo
   <proyecto>/.claude/skill-router/setup.lock      evita dos setups a la vez
   <proyecto>/.claude/skill-router/setup.log       salida del setup en segundo plano
+  <proyecto>/.claude/skill-router/.gitignore      "*": nada de esta carpeta va a git
+
+Si el plan tenía repos y no se instaló nada porque ninguna fuente se pudo
+descargar (p. ej. sin red), autopilot.json queda con ok:false y failed_at, y el
+arranque automático lo reintenta pasadas 24 h. Código de salida 1.
 
 Códigos de salida: 0 bien (o nada que hacer), 1 error, 2 uso incorrecto,
 3 otro setup en curso (solo sin --auto; con --auto es 0).
@@ -44,6 +49,7 @@ SR_REL = Path(".claude") / "skill-router"
 AUTOPILOT_FILE = "autopilot.json"
 LOCK_FILE = "setup.lock"
 LOG_FILE = "setup.log"
+GITIGNORE_FILE = ".gitignore"
 LOCK_STALE_SECONDS = 15 * 60
 # Si el último setup falló (p. ej. sin red), el arranque automático lo reintenta
 # como mucho una vez por este intervalo.
@@ -77,9 +83,33 @@ def write_marker(project, data: dict) -> None:
     if d.is_symlink() or (d.parent.is_symlink()):
         raise ValueError(f"{d} es (o cuelga de) un enlace simbólico; no se toca")
     d.mkdir(parents=True, exist_ok=True)
+    ensure_gitignore(d)
     tmp = d / (AUTOPILOT_FILE + ".tmp")
     tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     os.replace(tmp, d / AUTOPILOT_FILE)
+
+
+def ensure_gitignore(d: Path) -> None:
+    """Carpeta con rutas absolutas y logs: que no acabe en un commit."""
+    gi = d / GITIGNORE_FILE
+    if not gi.exists() and not gi.is_symlink():
+        gi.write_text("*\n", encoding="utf-8")
+
+
+# Motivos de salto de repo entero que NO son fallos de descarga (reintentar no ayuda).
+_NOT_FETCH_PREFIXES = ("el repo no está en el catálogo", "ninguna de las skills pedidas",
+                       "catálogo curado no disponible", "URL no permitida")
+
+
+def fetch_failures(p: dict, res: dict) -> list[dict]:
+    """Repos del plan que se saltaron enteros por no poder descargarse."""
+    names = {str(r.get("name")) for r in (p or {}).get("repos") or [] if isinstance(r, dict)}
+    out = []
+    for s in res.get("skipped") or []:
+        if s.get("skill") == "*" and s.get("repo") in names \
+                and not str(s.get("reason") or "").startswith(_NOT_FETCH_PREFIXES):
+            out.append(s)
+    return out
 
 
 def _pid_alive(pid: int) -> bool:
@@ -196,6 +226,16 @@ def cmd_plan(a) -> int:
     return 0
 
 
+def _skip_priority(s: dict) -> int:
+    """Primero lo que el usuario debe ver: modificadas a mano y rechazadas por seguridad."""
+    r = str(s.get("reason") or "").lower()
+    if "a mano" in r:
+        return 0
+    if "seguridad" in r:
+        return 1
+    return 2
+
+
 def setup_text(res: dict, p: dict, profile: dict) -> str:
     lines = [f"Skill Router — proyecto: {profile.get('root')}",
              f"Tipo detectado: {profile.get('summary') or '(sin señales claras)'}"]
@@ -211,7 +251,7 @@ def setup_text(res: dict, p: dict, profile: dict) -> str:
         lines.append("No se ha instalado ninguna skill.")
     for d in res.get("dedup_removed") or []:
         lines.append(f"  (duplicada) {d.get('skill')} ≈ {d.get('kept')} (similitud {d.get('similarity')})")
-    sk = res.get("skipped") or []
+    sk = sorted(res.get("skipped") or [], key=_skip_priority)
     if sk:
         lines.append(f"Saltadas: {len(sk)}")
         for s in sk[:10]:
@@ -224,6 +264,12 @@ def setup_text(res: dict, p: dict, profile: dict) -> str:
             f"Tokens por turno (estimación name+description): instalar todo ≈ {sv['before_tokens_est']}"
             f" ({sv['before_skills']} skills); instalado ≈ {sv['after_tokens_est']}"
             f" ({sv['after_skills']} skills) → ahorro ≈ {sv['saved_tokens_est']} ({sv['saved_pct']}%).")
+    if sv["after_tokens_est"] or inst:
+        lines.append(f"Coste neto añadido frente a no instalar nada: ≈ {sv['after_tokens_est']} tokens/turno"
+                     f" ({sv['after_skills'] if sv['after_skills'] is not None else len(inst)} skills).")
+    if res.get("fetch_failed"):
+        lines.append("No se pudo descargar ninguna fuente; se reintentará automáticamente pasadas 24 h "
+                     "(o ahora con: setup).")
     lines.append("Deshacer: python3 -m autopilot.cli undo --project <proyecto>  (o /skill-router:undo)")
     return "\n".join(lines)
 
@@ -262,7 +308,23 @@ def cmd_setup(a) -> int:
     try:
         res = install.apply_plan(p, str(project), allow_scripts=a.allow_scripts, dry_run=a.dry_run,
                                  sources_dir=a.sources_dir, max_skills=a.max_skills)
-        if not a.dry_run:
+        failures = fetch_failures(p, res) if not (res.get("installed") or []) else []
+        if failures:
+            res["fetch_failed"] = True
+        if not a.dry_run and failures:
+            # Nada instalado por no poder descargar: ok:false para que el arranque reintente a las 24 h.
+            write_marker(project, {
+                "version": 1, "ok": False, "disabled": False,
+                "updated": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+                "mode": "auto" if a.auto else "manual",
+                "failed_at": time.time(), "created_dirs": created,
+                "summary": profile.get("summary"),
+                "scenarios": p.get("scenarios") or [],
+                "installed": [],
+                "error": "no se pudo descargar ninguna fuente: " + "; ".join(
+                    f"{f.get('repo')}: {f.get('reason')}" for f in failures),
+            })
+        elif not a.dry_run:
             write_marker(project, {
                 "version": 1, "ok": True, "disabled": False,
                 "updated": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
@@ -292,7 +354,7 @@ def cmd_setup(a) -> int:
 
     _out({"profile": profile, "plan": p, "result": res, "savings": savings(res.get("token_estimate"))},
          a.json, setup_text(res, p, profile))
-    return 0
+    return 1 if res.get("fetch_failed") else 0
 
 
 def cmd_status(a) -> int:
@@ -318,6 +380,10 @@ def cmd_status(a) -> int:
         elif m.get("ok") is False:
             lines.append(f"El último setup falló: {m.get('error')}")
         sv = m.get("savings") or {}
+        if st.get("active") or sv.get("after_tokens_est"):
+            n_sk = sv.get("after_skills") if sv.get("after_skills") is not None else st.get("count", 0)
+            lines.append(f"Coste por turno de las skills instaladas: ≈ {sv.get('after_tokens_est') or 0} "
+                         f"tokens ({n_sk} skills).")
         if sv.get("before_tokens_est"):
             lines.append(f"Ahorro estimado por turno: ≈ {sv.get('saved_tokens_est')} tokens "
                          f"({sv.get('saved_pct')}%) frente a instalar todas las skills de los repos.")
@@ -335,7 +401,7 @@ def cmd_undo(a) -> int:
     res = install.undo(str(project), force=a.force)
     d = sr_dir(project)
     if a.purge:
-        for name in (AUTOPILOT_FILE, LOG_FILE):
+        for name in (AUTOPILOT_FILE, LOG_FILE, GITIGNORE_FILE):
             try:
                 (d / name).unlink()
             except OSError:

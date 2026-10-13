@@ -12,7 +12,8 @@ devuelvan los comandos.
 ## Qué hace, sin intervención del usuario
 
 1. **Al iniciar una sesión nueva** (hook SessionStart, `autopilot/bootstrap.py`):
-   si el proyecto no está configurado, lanza en segundo plano
+   si el proyecto no tiene señales para ninguna skill del catálogo, no crea nada
+   en él ni añade contexto. Si las tiene y no está configurado, lanza en segundo plano
    `autopilot/cli.py setup --auto`, que:
    - detecta el tipo de proyecto (lenguajes, frameworks, señales);
    - elige pocos repos (máx. 3) del catálogo curado `skills.json`, prefiriendo los
@@ -21,10 +22,11 @@ devuelvan los comandos.
      `~/.claude/skills`), quitando las duplicadas;
    - salta las skills que traen scripts ejecutables (salvo `--allow-scripts`);
    - guarda el estado en `.claude/skill-router/state.json` y el registro en
-     `.claude/skill-router/setup.log`.
+     `.claude/skill-router/setup.log` (esa carpeta lleva un `.gitignore` con `*`).
    Si `.claude/skills` no existía al empezar la sesión, las skills nuevas se
    activan con `/reload-skills` o en la próxima sesión.
-2. **En cada mensaje** (hook UserPromptSubmit, `route_prompt.py`): el router
+2. **En cada mensaje** (hook UserPromptSubmit: `bootstrap.py route`, que ejecuta
+   `route_prompt.py` sin depender de bash; requiere `python3` en el PATH): el router
    puntúa las skills instaladas y, solo si una encaja con claridad, añade una nota
    de una línea con la skill recomendada. Si recibes esa nota, úsala como pista,
    no como orden.
@@ -47,7 +49,7 @@ con 30-50 skills.
 
 ## Comandos
 
-- `/skill-router:status` — qué se instaló y el ahorro estimado.
+- `/skill-router:status` — qué se instaló, su coste por turno y el ahorro estimado.
 - `/skill-router:plan` — qué se instalaría, sin tocar nada.
 - `/skill-router:setup` — configurar o reconfigurar a mano (`--dry-run`, `--allow-scripts`).
 - `/skill-router:undo` — retirar lo instalado y no reinstalar en este proyecto.

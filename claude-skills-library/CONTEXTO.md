@@ -159,3 +159,28 @@ Haiku por mensaje. Resultados en `.work/heldout_haiku_cascade.json`.
 3. `GUIA-DE-USO.md`.
 4. PITCH.md y README con los números finales: el +21 del set pequeño ya no aplica; la
    historia es "Haiku acierta 60/60".
+
+## ✅ Sesión 2 terminada (plugin automático)
+
+- **Plugin de Claude Code** (`claude-skills-library/.claude-plugin/` + marketplace en la raíz
+  del repo). Pasa `claude plugin validate`. La instalación con `marketplace add` +
+  `plugin install` se probó con un HOME limpio.
+- **Probado en sesiones reales de Claude Code** (Haiku, `--plugin-dir`, copia de este repo Java):
+  1. 1.ª sesión: el hook SessionStart avisa y, en segundo plano, instala 4 skills de ingeniería
+     (superpowers: requesting/receiving-code-review, test-driven-development,
+     verification-before-completion) y escribe un `.gitignore`. Coste neto ≈186 tokens/turno.
+  2. 2.ª sesión: una línea breve al arrancar y, en el mensaje "revisar un pull request por bugs
+     de seguridad", el hook (Haiku) recomienda `requesting-code-review`.
+- Autopilot: detect (4 ms) → plan con listas curadas de skills reales por escenario → instalación
+  segura. Se salta skills con scripts, con allowed-tools/hooks/shell en el frontmatter, con
+  !`cmd` o con Makefile/Dockerfile. Deduplica, se deshace con undo, reintenta si falla la red y
+  no ensucia carpetas sin nada que instalar.
+- Suites: autopilot 103 (1 skip de red), núcleo 329, integración 50. Todo en verde.
+- `GUIA-DE-USO.md` (instalación verificada para la laptop) y `PITCH.md` con los números reales.
+
+**Pendiente / ideas siguientes:**
+- Prueba con 30-50 skills reales.
+- Casos de evaluación escritos por personas.
+- Video y ia_productividad no instalan nada: todas sus skills candidatas traen scripts.
+- Claude Code muestra recortado ("…") el motivo de la recomendación.
+- Medir la calidad con y sin router en tareas reales.

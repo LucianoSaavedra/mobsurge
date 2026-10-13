@@ -63,7 +63,10 @@ class InstallTests(unittest.TestCase):
         self.globals.mkdir(parents=True)
         self.project = self.tmp / "proyecto"
         self.project.mkdir()
-        env = mock.patch.dict(os.environ, {"SKILL_ROUTER_GLOBAL_SKILLS": str(self.globals)})
+        self.catalog = self.tmp / "skills.json"
+        # undo() comprueba que la url de cada entrada esté en el catálogo curado
+        env = mock.patch.dict(os.environ, {"SKILL_ROUTER_GLOBAL_SKILLS": str(self.globals),
+                                           "SKILL_ROUTER_CATALOG": str(self.catalog)})
         env.start()
         self.addCleanup(env.stop)
 
@@ -320,6 +323,131 @@ class InstallTests(unittest.TestCase):
                                catalog_path=self.catalog)
         self.assertTrue(alt.is_dir() and any(alt.iterdir()))
 
+
+    # --- hallazgos E2E: skills ajenas, huella, nombre raíz, globales, git ----
+
+    def extra_repo(self, name: str, skills: list, trust: str = "oficial") -> dict:
+        """Crea un repo file:// y lo añade al catálogo de prueba."""
+        url = make_repo(self.tmp / name, skills)
+        cat = json.loads(self.catalog.read_text())
+        cat["scenarios"]["base"]["repos"].append(
+            {"name": name, "url": url, "trust": trust, "about": "z"})
+        self.catalog.write_text(json.dumps(cat), encoding="utf-8")
+        return {"name": name, "url": url, "scenario": "base", "trust": trust, "reason": "t"}
+
+    def test_discover_excluye_plantillas(self):
+        r = self.extra_repo("contpl", [
+            ("skills/real", "real", "Edit spreadsheets with formulas."),
+            ("template", "template", "Una plantilla cualquiera."),
+            ("skills/templates/x", "x", "Otra plantilla."),
+            ("skills/vacia", "vacia", "Replace with description of the skill and when Claude should use it."),
+        ])
+        found = [p.name for p in install.discover_skills(self.tmp / "contpl")]
+        self.assertEqual(found, ["real"])
+        res = self.apply({"scenarios": ["base"], "repos": [r]}, dry_run=True)
+        self.assertEqual(self.names(res), ["real"])
+
+    def test_lista_de_skills_instala_solo_esas(self):
+        plan = self.plan("oficial")
+        plan["repos"][0]["skills"] = ["docx", "no-existe"]
+        res = self.apply(plan)
+        self.assertEqual(self.names(res), ["docx"])
+        self.assertTrue(any(s["skill"] == "no-existe" and "no existe" in s["reason"]
+                            for s in res["skipped"]), res["skipped"])
+
+    def test_lista_bloqueada_no_rellena_con_otras(self):
+        plan = self.plan("oficial")
+        plan["repos"][0]["skills"] = ["runner"]  # tiene scripts
+        res = self.apply(plan)
+        self.assertEqual(res["installed"], [])
+        self.assertTrue(any(s["skill"] == "*" and s["repo"] == "oficial"
+                            and "no se instala nada de este repo" in s["reason"]
+                            for s in res["skipped"]), res["skipped"])
+        self.assertFalse((self.project / ".claude" / "skills").exists())
+
+    def _state_with_foreign(self, entry_extra: dict) -> Path:
+        """Instala 'oficial' y mete en state.json una skill del usuario."""
+        self.apply(self.plan("oficial"))
+        mine = self.project / ".claude" / "skills" / "mine"
+        mine.mkdir(parents=True)
+        (mine / "SKILL.md").write_text("---\ndescription: mía\n---\n", encoding="utf-8")
+        sp = self.project / install.STATE_REL
+        st = json.loads(sp.read_text())
+        st["installed"].append(dict({"skill": "mine", "path": str(mine)}, **entry_extra))
+        sp.write_text(json.dumps(st))
+        return mine
+
+    def test_undo_no_borra_entrada_sin_hash(self):
+        mine = self._state_with_foreign({"repo": "oficial", "url": self.url_of})
+        u = install.undo(self.project)
+        self.assertTrue(mine.is_dir())
+        self.assertIn("mine", [k["skill"] for k in u["kept"]])
+        self.assertEqual(sorted(u["removed"]), ["docx", "frontend-design", "pdf"])
+        # force sí la borra
+        install.undo(self.project, force=True)
+        self.assertFalse(mine.exists())
+
+    def test_undo_no_borra_entrada_de_url_fuera_del_catalogo(self):
+        mine = self._state_with_foreign({"repo": "x", "url": "https://example.com/x"})
+        h = install.tree_hash(mine)
+        sp = self.project / install.STATE_REL
+        st = json.loads(sp.read_text())
+        st["installed"][-1]["hash"] = h
+        sp.write_text(json.dumps(st))
+        install.undo(self.project)
+        self.assertTrue(mine.is_dir())
+
+    def test_resetup_no_borra_entrada_sin_hash(self):
+        mine = self._state_with_foreign({"repo": "oficial", "url": self.url_of})
+        res = self.apply(self.plan("comunidad"))
+        self.assertTrue(mine.is_dir())
+        self.assertTrue(any(s["skill"] == "mine" and "huella" in s["reason"]
+                            for s in res["skipped"]), res["skipped"])
+
+    def test_skill_en_raiz_usa_nombre_del_frontmatter(self):
+        r = self.extra_repo("raiz", [(".", "rootskill", "Format SQL queries nicely.")])
+        res = self.apply({"scenarios": ["base"], "repos": [r]})
+        self.assertEqual(self.names(res), ["rootskill"])
+        self.assertTrue((self.project / ".claude" / "skills" / "rootskill" / "SKILL.md").is_file())
+        self.assertFalse(any(p.name.startswith("raiz-")
+                             for p in (self.project / ".claude" / "skills").iterdir()))
+
+    def test_skill_en_raiz_sin_nombre_valido_usa_el_repo(self):
+        r = self.extra_repo("mi-repo", [(".", "nombre no válido/..", "Lint YAML files.")])
+        res = self.apply({"scenarios": ["base"], "repos": [r]}, dry_run=True)
+        self.assertEqual(self.names(res), ["mi-repo"])
+
+    def test_dedup_con_globales_anidadas(self):
+        nested = self.globals / "synced" / "abc"
+        write_skill(nested, "pdf", "pdf", "Read, extract and fill PDF forms; merge and split PDF documents.")
+        write_skill(nested, "word", "word-docs", "Create and edit Word documents with tracked changes.")
+        res = self.apply(self.plan("oficial"), dry_run=True)
+        self.assertEqual(self.names(res), ["frontend-design"])
+        self.assertTrue(any(s["skill"] == "pdf" and "global" in s["reason"] for s in res["skipped"]))
+        self.assertTrue(any(d["skill"] == "docx" and d["kept"] == "word-docs"
+                            for d in res["dedup_removed"]), res["dedup_removed"])
+        self.assertTrue((nested / "word" / "SKILL.md").is_file())
+
+    def test_mensaje_de_error_de_git(self):
+        cp = subprocess.CompletedProcess
+        r = cp([], 128, "", "Cloning into 'x'...\nfatal: repository 'file:///no' does not exist\n"
+                           "Please make sure you have the correct access rights\n"
+                           "and the repository exists.\n")
+        self.assertEqual(install.git_error_message(r), "fatal: repository 'file:///no' does not exist")
+        r = cp([], 1, "", "\n  algo raro pasó\nsegunda línea\n")
+        self.assertEqual(install.git_error_message(r), "algo raro pasó")
+        self.assertEqual(install.git_error_message(cp([], 5, "", "")), "código 5")
+        res = self.apply({"scenarios": ["base"], "repos": [
+            self.extra_repo("roto", [("a", "a", "x")])]}, dry_run=True)
+        shutil.rmtree(self.sources)
+        cat = json.loads(self.catalog.read_text())
+        cat["scenarios"]["base"]["repos"][-1]["url"] = "file://" + str(self.tmp / "no-existe")
+        self.catalog.write_text(json.dumps(cat))
+        res = self.apply({"scenarios": ["base"], "repos": [{
+            "name": "roto", "url": "file://" + str(self.tmp / "no-existe")}]}, dry_run=True)
+        msg = next(s["reason"] for s in res["skipped"] if s["repo"] == "roto")
+        self.assertIn("fatal:", msg)
+        self.assertNotIn("and the repository exists", msg)
 
 @unittest.skipUnless(os.environ.get("SKILL_ROUTER_NET_TEST") == "1",
                      "prueba con red: exporta SKILL_ROUTER_NET_TEST=1")

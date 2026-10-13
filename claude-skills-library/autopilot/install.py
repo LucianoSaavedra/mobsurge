@@ -3,7 +3,7 @@
     apply_plan(plan, project_root, allow_scripts=False, dry_run=False,
                sources_dir=None, max_skills=12) -> dict
     status(project_root) -> dict
-    undo(project_root) -> dict
+    undo(project_root, force=False, catalog_path=None) -> dict
 
 Protecciones:
   (a) solo instala repos que estén en el catálogo curado (skills.json), con la
@@ -52,6 +52,9 @@ CLONE_TIMEOUT = 300
 CHARS_PER_TOKEN = 4
 _DISCOVER_SKIP = frozenset({".git", "node_modules", "__pycache__", ".venv", "venv",
                             "build", "dist", "target"})
+# Carpetas de plantillas (p. ej. anthropics/skills/template): no son skills.
+_TEMPLATE_DIRS = frozenset({"template", "templates", "_template", "skill-template"})
+_PLACEHOLDER_PREFIX = "replace with"
 
 
 def _router():
@@ -169,6 +172,17 @@ def _git(args: list[str], cwd=None, timeout=CLONE_TIMEOUT) -> subprocess.Complet
                           text=True, timeout=timeout)
 
 
+def git_error_message(r) -> str:
+    """Resumen legible del fallo de git: las líneas "fatal:" (o "error:") de
+    stderr; si no hay, la primera línea no vacía; si no, el código de salida."""
+    lines = [ln.strip() for ln in (r.stderr or r.stdout or "").splitlines() if ln.strip()]
+    for prefix in ("fatal:", "error:"):
+        hits = [ln for ln in lines if ln.lower().startswith(prefix)]
+        if hits:
+            return " ".join(dict.fromkeys(hits))[:500]
+    return lines[0][:500] if lines else f"código {r.returncode}"
+
+
 def fetch_repo(name: str, url: str, sources_dir=None) -> tuple[Path | None, str, str]:
     """Clona (depth 1) o reutiliza la fuente. Devuelve (ruta, commit, error)."""
     if not _allowed_url(url):
@@ -187,8 +201,7 @@ def fetch_repo(name: str, url: str, sources_dir=None) -> tuple[Path | None, str,
     try:
         r = _git(["clone", "--depth", "1", "--quiet", "--no-tags", "--", url, str(tmp / "r")])
         if r.returncode != 0:
-            msg = (r.stderr or r.stdout or "").strip().splitlines()
-            return None, "", "git clone falló: " + (msg[-1] if msg else f"código {r.returncode}")
+            return None, "", "git clone falló: " + git_error_message(r)
         if dest.exists():
             shutil.rmtree(dest, ignore_errors=True)
         os.replace(tmp / "r", dest)
@@ -202,8 +215,17 @@ def fetch_repo(name: str, url: str, sources_dir=None) -> tuple[Path | None, str,
     return dest, head.stdout.strip(), ""
 
 
+def is_placeholder_skill(skill_dir: Path) -> bool:
+    """True si es una plantilla vacía (descripción "Replace with ...")."""
+    _, desc = _skill_meta(skill_dir)
+    return (desc or "").strip().strip("\"'[(").lower().startswith(_PLACEHOLDER_PREFIX)
+
+
 def discover_skills(repo_dir: Path, max_depth: int = 4) -> list[Path]:
-    """Carpetas con SKILL.md (sin seguir symlinks ni entrar dentro de una skill)."""
+    """Carpetas con SKILL.md (sin seguir symlinks ni entrar dentro de una skill).
+
+    Excluye las carpetas template/templates y las skills de plantilla cuya
+    descripción empieza por "Replace with"."""
     found: list[Path] = []
 
     def walk(d: Path, depth: int) -> None:
@@ -214,18 +236,44 @@ def discover_skills(repo_dir: Path, max_depth: int = 4) -> list[Path]:
         for e in entries:
             if e.name in _DISCOVER_SKIP or e.name.startswith("."):
                 continue
+            if e.name.lower() in _TEMPLATE_DIRS:
+                continue
             if e.is_symlink() or not e.is_dir():
                 continue
             if (e / "SKILL.md").is_file():
-                found.append(e)
+                if not is_placeholder_skill(e):
+                    found.append(e)
             elif depth < max_depth:
                 walk(e, depth + 1)
 
     repo_dir = Path(repo_dir)
     if (repo_dir / "SKILL.md").is_file():
-        return [repo_dir]
+        return [] if is_placeholder_skill(repo_dir) else [repo_dir]
     walk(repo_dir, 1)
     return found
+
+
+def _root_skill_name(skill_dir: Path, repo_name: str) -> str:
+    """Nombre para la skill que está en la raíz del repo (su carpeta es la de
+    la caché, "<repo>-<sha8>"): el `name` del frontmatter si es válido; si no,
+    el nombre del repo del plan (saneado)."""
+    fm_name, _ = _skill_meta(skill_dir)
+    if fm_name and fm_name != skill_dir.name and safety.valid_skill_name(fm_name):
+        return fm_name
+    safe = "".join(c if c.isalnum() or c in "-_." else "-" for c in (repo_name or ""))
+    safe = safe.strip("-._")[:64]
+    return safe if safety.valid_skill_name(safe) else "skill"
+
+
+def _global_skills() -> list:
+    """Skills globales del usuario (también las anidadas, p. ej.
+    ~/.claude/skills/synced/<id>/<skill>), con el mismo recorrido que usa el
+    hook para cargarlas."""
+    gdir = global_skills_dir()
+    try:
+        return _router().load_from_dir(gdir) if gdir.is_dir() else []
+    except Exception:  # pragma: no cover - una global ilegible no bloquea
+        return []
 
 
 def _skill_meta(skill_dir: Path) -> tuple[str, str]:
@@ -287,6 +335,8 @@ def apply_plan(plan: dict, project_root, allow_scripts: bool = False, dry_run: b
     prev = _read_state(root) or {}
     prev_by_name = {e["skill"]: e for e in prev.get("installed", []) if isinstance(e, dict) and e.get("skill")}
     gdir = global_skills_dir()
+    globals_ = _global_skills()
+    global_names = {g.name for g in globals_ if g.name}
     max_skills = max(0, int(max_skills))
 
     installed: list[dict] = []
@@ -320,12 +370,17 @@ def apply_plan(plan: dict, project_root, allow_scripts: bool = False, dry_run: b
         repos_info.append({"name": rname, "url": url, "commit": commit, "trust": trust,
                            "source": str(path)})
         only = repo.get("skills")
-        only = set(only) if isinstance(only, list) else None
+        only = [str(x) for x in only] if isinstance(only, list) else None
+        n_before = len(candidates)
+        matched: set[str] = set()
         for sdir in discover_skills(path):
-            name = sdir.name
-            if only is not None and name not in only:
-                continue
             fm_name, desc = _skill_meta(sdir)
+            name = _root_skill_name(sdir, rname) if sdir == path else sdir.name
+            if only is not None:
+                hit = next((x for x in only if x in (name, sdir.name, fm_name)), None)
+                if hit is None:
+                    continue
+                matched.add(hit)
             all_found += 1
             all_found_chars += len(fm_name or name) + len(desc or "")
             info = safety.classify_skill(sdir, name)
@@ -338,7 +393,7 @@ def apply_plan(plan: dict, project_root, allow_scripts: bool = False, dry_run: b
                                 "reason": "tiene scripts (usa --allow-scripts para permitirlo): "
                                           + safety.summarize_reasons(info["reasons"])})
                 continue
-            if (gdir / name).exists():
+            if (gdir / name).exists() or name in global_names or (fm_name or name) in global_names:
                 skipped.append({"skill": name, "repo": rname,
                                 "reason": "ya existe como skill global en ~/.claude/skills (no se duplica)"})
                 continue
@@ -351,6 +406,20 @@ def apply_plan(plan: dict, project_root, allow_scripts: bool = False, dry_run: b
                                "trust": trust, "kind": info["kind"], "files": info["files"],
                                "src": sdir, "description": desc or "", "fm_name": fm_name or name,
                                "order": idx, "src_hash": tree_hash(sdir)})
+        if only is not None:
+            for x in only:
+                if x not in matched:
+                    skipped.append({"skill": x, "repo": rname,
+                                    "reason": "no existe en el repo (o es una plantilla)"})
+            if not only:
+                skipped.append({"skill": "*", "repo": rname,
+                                "reason": "el plan no pide ninguna skill de este repo: "
+                                          "no se instala nada de él"})
+            elif len(candidates) == n_before:
+                skipped.append({"skill": "*", "repo": rname,
+                                "reason": "ninguna de las skills pedidas ("
+                                          + ", ".join(only) + ") se puede instalar: "
+                                          "no se instala nada de este repo"})
 
     # Para deduplicar: gana mayor trust y, a igualdad, la descripción más completa.
     candidates.sort(key=lambda c: (-trust_rank(c["trust"]), -len(c["description"]),
@@ -358,7 +427,11 @@ def apply_plan(plan: dict, project_root, allow_scripts: bool = False, dry_run: b
 
     # Deduplicación: mismo nombre o similitud >= umbral con una ya elegida.
     sr = _router()
-    kept: list[dict] = []
+    # Las globales (también las anidadas) entran como "ya elegidas" y nunca se
+    # borran: si una candidata se parece a una global, se descarta la candidata.
+    kept: list[dict] = [{"skill": g.name, "fm_name": g.name, "description": g.description or "",
+                         "repo": "global (~/.claude/skills)", "is_global": True}
+                        for g in globals_ if g.name]
     for c in candidates:
         dup = next((k for k in kept if k["skill"] == c["skill"]), None)
         sim = 1.0 if dup else 0.0
@@ -380,6 +453,7 @@ def apply_plan(plan: dict, project_root, allow_scripts: bool = False, dry_run: b
         else:
             kept.append(c)
 
+    kept = [k for k in kept if not k.get("is_global")]
     # Para el límite: trust, orden del plan (el planificador ya prioriza), descripción.
     kept.sort(key=lambda c: (-trust_rank(c["trust"]), c["order"],
                              -len(c["description"]), c["skill"]))
@@ -425,7 +499,7 @@ def apply_plan(plan: dict, project_root, allow_scripts: bool = False, dry_run: b
     for name, old in prev_by_name.items():
         if name in chosen:
             continue
-        r = _remove_entry(root, old, dry_run=dry_run)
+        r = _remove_entry(root, old, dry_run=dry_run, catalog=catalog)
         if r["removed"]:
             removed.append({"skill": name, "reason": "ya no está en el plan"})
         else:
@@ -471,9 +545,11 @@ def apply_plan(plan: dict, project_root, allow_scripts: bool = False, dry_run: b
     }
 
 
-def _remove_entry(root: Path, entry: dict, dry_run: bool = False, force: bool = False) -> dict:
+def _remove_entry(root: Path, entry: dict, dry_run: bool = False, force: bool = False,
+                  catalog: dict | None = None) -> dict:
     """Borra una skill registrada solo si está dentro de .claude/skills del
-    proyecto y (salvo force) no se modificó desde que se instaló."""
+    proyecto y (salvo force) tiene la huella de skill-router (hash y url del
+    catálogo curado) y no se modificó desde que se instaló."""
     name = entry.get("skill", "")
     skills_dir = root / SKILLS_REL
     dest = skills_dir / name
@@ -483,7 +559,11 @@ def _remove_entry(root: Path, entry: dict, dry_run: bool = False, force: bool = 
         return {"removed": False, "reason": "ruta fuera de .claude/skills del proyecto; no se borra"}
     if not dest.exists():
         return {"removed": True, "reason": "ya no existía"}
-    if not force and entry.get("hash") and tree_hash(dest) != entry["hash"]:
+    if not force:
+        url = entry.get("url")
+        if not entry.get("hash") or not url or (catalog and _norm_url(str(url)) not in catalog):
+            return {"removed": False, "reason": "entrada sin huella de skill-router; no se borra"}
+    if not force and tree_hash(dest) != entry["hash"]:
         return {"removed": False, "reason": "modificada a mano desde la instalación; se conserva"}
     if not dry_run:
         shutil.rmtree(dest)
@@ -513,8 +593,9 @@ def status(project_root) -> dict:
     return out
 
 
-def undo(project_root, force: bool = False) -> dict:
-    """Deshace lo registrado en state.json. No borra nada que no esté en él ni
+def undo(project_root, force: bool = False, catalog_path=None) -> dict:
+    """Deshace lo registrado en state.json. No borra nada que no esté en él, ni
+    entradas sin huella de skill-router (hash + url del catálogo curado), ni
     copias modificadas a mano (salvo force=True)."""
     root = _check_project(project_root)
     state = _read_state(root)
@@ -523,8 +604,10 @@ def undo(project_root, force: bool = False) -> dict:
         result["message"] = "no hay nada que deshacer (no existe state.json)"
         return result
     kept_entries = []
+    catalog = _load_catalog(catalog_path or os.environ.get("SKILL_ROUTER_CATALOG")
+                            or DEFAULT_CATALOG)
     for e in state.get("installed") or []:
-        r = _remove_entry(root, e, force=force)
+        r = _remove_entry(root, e, force=force, catalog=catalog)
         if r["removed"]:
             result["removed"].append(e.get("skill"))
         else:

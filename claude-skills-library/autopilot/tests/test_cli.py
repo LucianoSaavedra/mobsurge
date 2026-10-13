@@ -177,6 +177,87 @@ class CliTest(unittest.TestCase):
         self.assertIn("failed_at", m)
         self.assertFalse((self.proj / ".claude/skill-router/setup.lock").exists())
 
+    def _fetch_fail_apply(self, reason):
+        def apply(plan, project_root, allow_scripts=False, dry_run=False, sources_dir=None, max_skills=12):
+            return {"installed": [], "skipped": [{"skill": "*", "repo": "r1", "reason": reason}],
+                    "dedup_removed": [], "removed": [],
+                    "token_estimate": {"before_tokens_est": 0, "after_tokens_est": 0,
+                                       "before_skills": 0, "after_skills": 0},
+                    "dry_run": dry_run}
+        return apply
+
+    def test_fetch_failure_marks_retry(self):
+        self.mocks[2].side_effect = self._fetch_fail_apply("git clone falló: fatal: could not read from remote")
+        code, out = self.run_cli("setup", "--auto", "--project", str(self.proj))
+        self.assertEqual(code, 1)
+        self.assertIn("se reintentará automáticamente pasadas 24 h", out)
+        m = cli.read_marker(self.proj)
+        self.assertIs(m["ok"], False)
+        self.assertIsInstance(m["failed_at"], float)
+        self.assertIn("could not read from remote", m["error"])
+        self.assertFalse((self.proj / ".claude/skill-router/setup.lock").exists())
+        # El arranque siguiente no lo da por configurado: queda en la ventana de reintento.
+        from autopilot import bootstrap
+        buf = io.StringIO()
+        with mock.patch.object(bootstrap, "_spawn_setup") as spawn:
+            self.assertIsNone(bootstrap.run(json.dumps({"cwd": str(self.proj)}), out=buf))
+            spawn.assert_not_called()
+            m["failed_at"] = 0.0  # pasadas 24 h: se reintenta
+            cli.write_marker(self.proj, m)
+            with mock.patch.object(bootstrap, "_plan_repos", return_value=[{"name": "r1"}]):
+                self.assertIn("segundo plano", bootstrap.run(json.dumps({"cwd": str(self.proj)}), out=buf))
+            spawn.assert_called_once()
+
+    def test_fetch_failure_json_exit_1(self):
+        self.mocks[2].side_effect = self._fetch_fail_apply("no se pudo clonar: sin red")
+        code, out = self.run_cli("setup", "--auto", "--project", str(self.proj), "--json")
+        self.assertEqual(code, 1)
+        self.assertTrue(json.loads(out)["result"]["fetch_failed"])
+
+    def test_not_in_catalog_is_not_a_fetch_failure(self):
+        self.mocks[2].side_effect = self._fetch_fail_apply(
+            "el repo no está en el catálogo curado (o su URL no coincide)")
+        code, _ = self.run_cli("setup", "--auto", "--project", str(self.proj), "--json")
+        self.assertEqual(code, 0)
+        self.assertIs(cli.read_marker(self.proj)["ok"], True)
+
+    def test_partial_fetch_failure_with_installs_is_ok(self):
+        def apply(*a, **k):
+            r = fake_apply(*a, **k)
+            r["skipped"].append({"skill": "*", "repo": "r1", "reason": "git clone falló: x"})
+            return r
+        self.mocks[2].side_effect = apply
+        code, _ = self.run_cli("setup", "--auto", "--project", str(self.proj), "--json")
+        self.assertEqual(code, 0)
+        self.assertIs(cli.read_marker(self.proj)["ok"], True)
+
+    def test_setup_writes_gitignore(self):
+        self.run_cli("setup", "--auto", "--project", str(self.proj), "--json")
+        self.assertEqual((self.proj / ".claude/skill-router/.gitignore").read_text(), "*\n")
+
+    def test_setup_text_net_cost_and_skip_order(self):
+        def apply(*a, **k):
+            r = fake_apply(*a, **k)
+            r["skipped"] = ([{"skill": f"s{i}", "repo": "r1", "reason": "tiene scripts"} for i in range(11)]
+                            + [{"skill": "mia", "repo": "r1", "reason": "modificada a mano; se conserva"},
+                               {"skill": "mala", "repo": "r1", "reason": "rechazada por seguridad: x"}])
+            return r
+        self.mocks[2].side_effect = apply
+        code, out = self.run_cli("setup", "--auto", "--project", str(self.proj))
+        self.assertEqual(code, 0)
+        self.assertIn("Coste neto añadido frente a no instalar nada: ≈ 100 tokens/turno (1 skills)", out)
+        lines = out.splitlines()
+        i = lines.index("Saltadas: 13")
+        self.assertIn("mia", lines[i + 1])
+        self.assertIn("mala", lines[i + 2])
+
+    def test_status_text_shows_cost(self):
+        self.run_cli("setup", "--auto", "--project", str(self.proj), "--json")
+        code, out = self.run_cli("status", "--project", str(self.proj))
+        self.assertEqual(code, 0)
+        self.assertIn("Coste por turno de las skills instaladas: ≈ 100 tokens (1 skills)", out)
+        self.assertIn("Ahorro estimado por turno: ≈ 900", out)
+
     def test_runs_by_path_and_as_module(self):
         for cmd in ([sys.executable, str(LIB / "autopilot" / "cli.py"), "--help"],
                     [sys.executable, "-m", "autopilot.cli", "--help"]):
@@ -197,13 +278,20 @@ class PluginLayoutTest(unittest.TestCase):
         hooks = json.loads((LIB / "hooks/hooks.json").read_text(encoding="utf-8"))["hooks"]
         ss = hooks["SessionStart"][0]
         self.assertEqual(ss["matcher"], "startup")
-        self.assertIn("autopilot/bootstrap.py", ss["hooks"][0]["command"])
+        self.assertEqual(ss["hooks"][0]["args"], ["${CLAUDE_PLUGIN_ROOT}/autopilot/bootstrap.py"])
         ups = hooks["UserPromptSubmit"][0]["hooks"][0]
-        self.assertIn('SKILL_ROUTER_HOOK_MODE="${SKILL_ROUTER_HOOK_MODE:-llm}"', ups["command"])
+        # Forma exec (sin shell): nada de VAR=valor ni ${VAR:-...}, que fallan en PowerShell.
+        self.assertEqual(ups["args"], ["${CLAUDE_PLUGIN_ROOT}/autopilot/bootstrap.py", "route"])
         self.assertEqual(ups["timeout"], 30)
         for h in (ss["hooks"][0], ups):
-            rel = h["command"].split('"${CLAUDE_PLUGIN_ROOT}"/', 1)[1]
+            self.assertEqual(h["type"], "command")
+            self.assertEqual(h["command"], "python3")
+            self.assertNotIn("=", h["command"])
+            rel = h["args"][0].split("${CLAUDE_PLUGIN_ROOT}/", 1)[1]
             self.assertTrue((LIB / rel).is_file(), rel)
+        boot = (LIB / "autopilot/bootstrap.py").read_text(encoding="utf-8")
+        self.assertIn('"llm"', boot)
+        self.assertTrue((LIB / "skill-router/integration/hooks/route_prompt.py").is_file())
 
     def test_commands_and_skill(self):
         for name in ("setup", "status", "undo", "plan"):

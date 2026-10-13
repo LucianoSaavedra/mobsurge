@@ -50,7 +50,7 @@ Lo que **nunca** hace:
 - Conexión a internet la primera vez que se configura cada tipo de proyecto
   (después, las fuentes quedan en caché en `~/.cache/skill-router/sources`).
 - Este repositorio descargado en tu equipo. En los ejemplos está en
-  `/home/user/mobsurge`; cambia esa ruta por la tuya.
+  `~/mobsurge` (el paso 1 de la instalación lo clona ahí).
 
 > Las sesiones de Claude Code en la nube (claude.ai/code) **no cargan** los plugins
 > que instalas en tu equipo. Este plugin es para tu Claude Code local.
@@ -59,41 +59,50 @@ Lo que **nunca** hace:
 
 ## 3. Instalación (una sola vez)
 
-Ejecuta esto en tu terminal (fuera de Claude Code). **[no verificado aquí]**
+Ejecuta esto en la terminal de tu laptop, fuera de Claude Code. Los pasos 2 a 4 se
+comprobaron de verdad: un `claude plugin validate`, la instalación con un HOME limpio
+y dos sesiones reales de Claude Code con el plugin cargado.
 
 ```bash
-# 1. Comprobar que el plugin está bien formado (debe decir "Validation passed")
-claude plugin validate /home/user/mobsurge/claude-skills-library
+# 1. Descarga el proyecto (solo la primera vez) y entra en la rama del plugin
+git clone https://github.com/LucianoSaavedra/mobsurge.git ~/mobsurge
+cd ~/mobsurge && git checkout claude/skills-repos-research-k788cw
 
-# 2. Añadir el repositorio como "marketplace" (tienda local de plugins)
-claude plugin marketplace add /home/user/mobsurge
-#    Debe responder algo como:
-#    Successfully added marketplace: mobsurge-skills (declared in user settings)
+# 2. (Opcional) Comprueba que el plugin está bien formado: debe decir "Validation passed"
+claude plugin validate ~/mobsurge/claude-skills-library
 
-# 3. Instalar el plugin para TODOS tus proyectos (ámbito "user", el de por defecto)
+# 3. Añade el repositorio como "marketplace" (tienda local de plugins)
+claude plugin marketplace add ~/mobsurge
+#    Debe responder: Successfully added marketplace: mobsurge-skills
+
+# 4. Instala el plugin para TODOS tus proyectos
 claude plugin install skill-router@mobsurge-skills
+#    Debe responder: Successfully installed plugin: skill-router@mobsurge-skills (scope: user)
 
-# 4. Comprobar
-claude plugin list               # skill-router debe aparecer como "enabled"
-claude plugin details skill-router
+# 5. Comprueba que aparece como "enabled"
+claude plugin list
 ```
 
-Atajo de un solo comando (añade el marketplace si falta) **[no verificado aquí]**:
+Cuando el PR #1 se fusione en `main`, podrás saltarte el clon y añadir el
+marketplace directamente desde GitHub **[no verificado aquí]**:
 
 ```bash
-claude plugin install skill-router --marketplace /home/user/mobsurge
+claude plugin install skill-router --marketplace LucianoSaavedra/mobsurge
 ```
 
 Desde **dentro** de una sesión de Claude Code también se puede:
 
 ```
-/plugin marketplace add /home/user/mobsurge
+/plugin marketplace add ~/mobsurge
 /plugin install skill-router@mobsurge-skills
 ```
 
+Para actualizarlo más adelante: `cd ~/mobsurge && git pull`. El marketplace local
+lee del clon.
+
 Notas:
 
-- El nombre `mobsurge-skills` sale de `/home/user/mobsurge/.claude-plugin/marketplace.json`.
+- El nombre `mobsurge-skills` sale de `~/mobsurge/.claude-plugin/marketplace.json`.
   Si el repositorio está en GitHub, en el paso 2 puedes usar `owner/repo` en vez
   de la ruta.
 - Como el marketplace es una carpeta local, Claude Code lee los archivos del
@@ -196,7 +205,7 @@ Dentro de Claude Code (los añade el plugin):
 Lo mismo desde la terminal, sin Claude Code:
 
 ```bash
-cd /home/user/mobsurge/claude-skills-library
+cd ~/mobsurge/claude-skills-library
 python3 -m autopilot.cli plan   --project /ruta/a/tu/proyecto
 python3 -m autopilot.cli setup  --project /ruta/a/tu/proyecto --dry-run
 python3 -m autopilot.cli status --project /ruta/a/tu/proyecto
@@ -309,7 +318,7 @@ cuando quieras.
   documentación (code.claude.com/docs/en/plugin-marketplaces y /docs/en/plugins)
   y del `--help` del CLI.
 - Para probar el plugin sin instalarlo (solo esa sesión):
-  `claude --plugin-dir /home/user/mobsurge/claude-skills-library`.
+  `claude --plugin-dir ~/mobsurge/claude-skills-library`.
 - No aparece la nota del router: comprueba que no tienes `SKILL_ROUTER_HOOK_OFF=1`
   y que la sesión ve skills instaladas. Con `SKILL_ROUTER_HOOK_DEBUG=1` el hook
   escribe diagnóstico.

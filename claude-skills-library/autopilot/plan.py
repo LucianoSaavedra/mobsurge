@@ -1,7 +1,8 @@
 """C2. Plan determinista: qué repos del catálogo curado instalar en un proyecto.
 
 make_plan(profile, catalog_path, max_repos=3) -> {
-    "scenarios": [...], "repos": [{"name", "url", "scenario", "trust", "reason"}],
+    "scenarios": [...], "repos": [{"name", "url", "scenario", "trust", "reason",
+                                   "skills"?}],
     "skipped": [{"name", "reason"}], "token_budget_note"}
 
 Reglas:
@@ -14,6 +15,10 @@ Reglas:
 - Menos repos antes que más: un repo por escenario (el de mayor confianza),
   se descartan colecciones grandes (tag "coleccion-grande"), se deduplica por
   URL y se corta en max_repos.
+- Cada repo del catálogo declara "skills": la lista acotada de skills del
+  escenario; se copia a la entrada del plan (install.py solo instala esas).
+  Lista vacía -> el repo no se instala (va a skipped), nunca el repo entero.
+  Si dos escenarios eligen el mismo repo, sus listas se unen.
 - Sin señales -> plan vacío, nunca "todo".
 """
 from __future__ import annotations
@@ -73,6 +78,7 @@ def make_plan(profile: dict, catalog_path, max_repos: int = 3) -> dict:
     repos: list[dict] = []
     skipped: list[dict] = []
     seen_urls: dict[str, str] = {}
+    repos_by_url: dict[str, dict] = {}
     for score, key, matched in chosen:
         sc = scenarios[key]
         candidates = [r for r in (sc.get("repos") or [])
@@ -91,29 +97,62 @@ def make_plan(profile: dict, catalog_path, max_repos: int = 3) -> dict:
             if picked:
                 skipped.append({"name": name, "reason": f"alternativa en '{key}': ya se eligió una opción de igual o mayor confianza"})
                 continue
+            only = _skill_list(r)
+            if only == []:
+                # Lista vacía = ninguna skill segura y relevante: no se instala el
+                # repo entero (eso metería skills ajenas al escenario).
+                skipped.append({"name": name, "reason": f"sin skills seguras y relevantes para '{key}' (lista \"skills\" vacía en el catálogo): no se instala el repo entero"})
+                continue
             picked = True
             if url in seen_urls:
-                skipped.append({"name": name, "reason": f"mismo repo que '{seen_urls[url]}', ya incluido"})
+                prev = repos_by_url[url]
+                extra = [x for x in (only or []) if x not in prev.get("skills", [])]
+                if "skills" in prev and extra:
+                    prev["skills"] = prev["skills"] + extra
+                    skipped.append({"name": name, "reason": f"mismo repo que '{seen_urls[url]}', ya incluido; se añaden sus skills: {', '.join(extra)}"})
+                else:
+                    skipped.append({"name": name, "reason": f"mismo repo que '{seen_urls[url]}', ya incluido"})
                 continue
             if len(repos) >= max_repos:
                 skipped.append({"name": name, "reason": f"límite de {max_repos} repos alcanzado (menos repos = menos tokens)"})
                 continue
             seen_urls[url] = name
-            repos.append({"name": name, "url": url, "scenario": key,
-                          "trust": str(r.get("trust") or "desconocido"),
-                          "reason": f"escenario '{sc.get('title') or key}' (puntuación {_fmt(score)}; señales: {', '.join(matched)})"})
+            entry = {"name": name, "url": url, "scenario": key,
+                     "trust": str(r.get("trust") or "desconocido"),
+                     "reason": f"escenario '{sc.get('title') or key}' (puntuación {_fmt(score)}; señales: {', '.join(matched)})"}
+            if only is not None:
+                entry["skills"] = list(only)
+            repos_by_url[url] = entry
+            repos.append(entry)
 
     if repos:
         note = (f"{len(repos)} repo(s) de {len(scenarios)} escenarios del catálogo. Cada skill instalada "
                 "añade su nombre y descripción al contexto en cada turno; por eso se eligen pocos repos "
                 "y la instalación limita el número de skills. La estimación real de tokens la da la "
                 "instalación (token_estimate).")
+    elif chosen:
+        note = ("Hay escenarios que encajan, pero ninguno tiene skills seguras y relevantes que "
+                "instalar automáticamente (ver skipped): no se instala nada (0 tokens extra).")
     else:
         note = ("Sin señales suficientes: no se instala nada (0 tokens extra). Puedes elegir "
                 "escenarios a mano con install.sh.")
     return {"scenarios": [k for _, k, _ in chosen],
             "scenario_scores": {k: (int(s) if float(s).is_integer() else s) for s, k, _ in scored},
             "repos": repos, "skipped": skipped, "token_budget_note": note}
+
+
+def _skill_list(repo: dict):
+    """Lista "skills" del catálogo, limpia y sin duplicados (orden del catálogo).
+    None si el repo no la declara (catálogos antiguos: se instala lo que pase
+    los filtros de seguridad); [] si la declara vacía o sin nombres válidos."""
+    raw = repo.get("skills")
+    if not isinstance(raw, list):
+        return None
+    out: list[str] = []
+    for x in raw:
+        if isinstance(x, str) and x.strip() and x.strip() not in out:
+            out.append(x.strip())
+    return out
 
 
 def _num(v) -> float:

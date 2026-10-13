@@ -3,7 +3,11 @@
 Clasifica cada carpeta de skill como:
   - "solo-instrucciones": solo texto (markdown/datos), sin nada ejecutable.
   - "con-scripts": contiene algo ejecutable o no textual (bit de ejecución,
-    .py/.sh/.js..., shebang, binarios). Se salta salvo allow_scripts.
+    .py/.sh/.js..., shebang, binarios, Makefile/Dockerfile o cualquier archivo
+    sin extensión que no sea un nombre de texto conocido) o un markdown que
+    ejecuta o preaprueba comandos: claves de frontmatter `hooks`,
+    `allowed-tools` o `shell`, inyección `` !`cmd` `` o bloques ```! (según
+    https://code.claude.com/docs/en/skills). Se salta salvo allow_scripts.
   - "rechazada": nunca se instala (symlinks que salen de la carpeta o a
     directorios, rutas con "..", nombre de skill inválido, demasiado grande).
 
@@ -44,6 +48,29 @@ SCRIPT_EXTS = frozenset({
     ".scpt", ".command", ".app", ".msi", ".deb", ".rpm",
 })
 
+# Nombres (sin extensión o con ella) que ejecutan herramientas como make,
+# docker, just o rake. Se comparan en minúsculas con el nombre o su raíz
+# ("Dockerfile.dev" -> "dockerfile").
+EXEC_NAMES = frozenset({"makefile", "gnumakefile", "dockerfile", "containerfile",
+                        "justfile", ".justfile", "rakefile", "gemfile", "procfile",
+                        "vagrantfile", "taskfile", "brewfile", "jenkinsfile",
+                        "earthfile", "tiltfile", "snakefile", "buildfile"})
+SCRIPT_EXTS = SCRIPT_EXTS | {".mk", ".mak", ".dockerfile", ".just", ".rake", ".gemspec",
+                             ".nix", ".gradle", ".kts", ".groovy", ".tcl", ".awk", ".sed"}
+
+# Claves de frontmatter de SKILL.md que ejecutan o preaprueban comandos:
+#   hooks          -> registra hooks de shell para el resto de la sesión;
+#   allowed-tools  -> preaprueba herramientas (p. ej. Bash(*)) en ese turno;
+#   shell          -> elige el shell de la inyección !`cmd` / ```!.
+RISKY_FRONTMATTER_KEYS = frozenset({"hooks", "allowed-tools", "shell"})
+# Inyección dinámica: `!` al inicio de línea o tras un espacio, seguido de
+# `cmd` (KEY=!`cmd` NO se ejecuta, según la documentación).
+_INLINE_BANG_RE = re.compile(r"(?:^|\s)!`[^`\n]+`", re.M)
+# Bloque cercado que se ejecuta: línea que abre con ```! (con sangría opcional).
+_FENCE_BANG_RE = re.compile(r"^[ \t]{0,3}(?:`{3,}|~{3,})[ \t]*!", re.M)
+MARKDOWN_EXTS = frozenset({".md", ".markdown", ".mdx", ".txt"})
+MAX_SCAN_BYTES = 2 * 1024 * 1024
+
 MAX_FILES = 2000
 MAX_BYTES = 50 * 1024 * 1024
 _SNIFF = 4096
@@ -76,6 +103,9 @@ def _is_text_file(path: Path) -> tuple[bool, str]:
     ext = path.suffix.lower()
     if ext in SCRIPT_EXTS:
         return False, f"archivo de código ({ext})"
+    if name in EXEC_NAMES or name.split(".")[0] in EXEC_NAMES or (
+            name.startswith(".") and name.lstrip(".").split(".")[0] in EXEC_NAMES):
+        return False, f"archivo que ejecutan herramientas ({path.name})"
     try:
         with open(path, "rb") as fh:
             head = fh.read(_SNIFF)
@@ -83,7 +113,9 @@ def _is_text_file(path: Path) -> tuple[bool, str]:
         return False, f"no se puede leer ({e.strerror or e})"
     if head.startswith(b"#!"):
         return False, "tiene shebang (#!)"
-    if ext not in TEXT_EXTS and name not in TEXT_NAMES and ext != "":
+    if ext not in TEXT_EXTS and name not in TEXT_NAMES:
+        if ext == "":
+            return False, "archivo sin extensión (no se considera texto)"
         return False, f"tipo de archivo no textual ({ext})"
     if b"\x00" in head:
         return False, "contenido binario"
@@ -94,6 +126,51 @@ def _is_text_file(path: Path) -> tuple[bool, str]:
         if e.start < len(head) - 4:
             return False, "no es texto UTF-8"
     return True, ""
+
+
+def frontmatter_keys(text: str) -> list[str]:
+    """Claves de primer nivel del frontmatter YAML (en minúsculas), sin
+    dependencias. Si no hay frontmatter devuelve []."""
+    if text.startswith("\ufeff"):
+        text = text[1:]
+    lines = text.splitlines()
+    if not lines or lines[0].rstrip() != "---":
+        return []
+    keys: list[str] = []
+    for line in lines[1:]:
+        if line.rstrip() in ("---", "..."):
+            break
+        if not line or line[0] in " \t#-":
+            continue  # continuación, comentario o elemento de lista
+        m = re.match(r"""^(['"]?)([^:'"]+)\1\s*:""", line)
+        if m:
+            keys.append(m.group(2).strip().lower())
+    return keys
+
+
+def markdown_risks(text: str, is_skill_md: bool = False) -> list[str]:
+    """Construcciones de un markdown que hacen que Claude Code ejecute o
+    preapruebe comandos sin pedir permiso. Un bloque ```bash que solo MUESTRA
+    comandos no es un riesgo."""
+    risks: list[str] = []
+    if is_skill_md:
+        for k in frontmatter_keys(text):
+            if k in RISKY_FRONTMATTER_KEYS:
+                risks.append(f"frontmatter con '{k}' (ejecuta o preaprueba comandos)")
+    if _INLINE_BANG_RE.search(text):
+        risks.append("inyección de comandos !`cmd`")
+    if _FENCE_BANG_RE.search(text):
+        risks.append("bloque ```! que ejecuta comandos")
+    return risks
+
+
+def _scan_markdown(path: Path, is_skill_md: bool) -> list[str]:
+    try:
+        with open(path, "rb") as fh:
+            raw = fh.read(MAX_SCAN_BYTES)
+    except OSError:
+        return []
+    return markdown_risks(raw.decode("utf-8", errors="replace"), is_skill_md)
 
 
 def classify_skill(skill_dir: Path, name: str | None = None) -> dict:
@@ -163,6 +240,10 @@ def classify_skill(skill_dir: Path, name: str | None = None) -> dict:
             ok, why = _is_text_file(full)
             if not ok:
                 scripts.append(f"{rel}: {why}")
+                continue
+            if full.suffix.lower() in MARKDOWN_EXTS:
+                for risk in _scan_markdown(full, rel == "SKILL.md"):
+                    scripts.append(f"{rel}: {risk}")
         if len(files) > MAX_FILES:
             rejected.append(f"demasiados archivos (> {MAX_FILES})")
             break
