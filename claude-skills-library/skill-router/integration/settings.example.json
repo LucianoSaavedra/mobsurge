@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"/RUTA/ABSOLUTA/A/claude-skills-library/skill-router/integration/hooks/route_prompt.py\"",
+            "timeout": 30,
+            "statusMessage": "Skill Router: eligiendo skills..."
+          }
+        ]
+      }
+    ]
+  }
+}

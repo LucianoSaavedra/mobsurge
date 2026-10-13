@@ -1,0 +1,31 @@
+{
+  "description": "Skill Router: autoinstala skills curadas y recomienda una por mensaje. Forma exec (command + args): no depende de bash; requiere python3 en el PATH (en Windows, instalar Python).",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/autopilot/bootstrap.py"],
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/autopilot/bootstrap.py", "route"],
+            "timeout": 30,
+            "statusMessage": "Skill Router: eligiendo skill..."
+          }
+        ]
+      }
+    ]
+  }
+}

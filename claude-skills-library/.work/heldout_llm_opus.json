@@ -1,0 +1,2160 @@
+{
+  "cases": "bench/heldout.json",
+  "baseline": {
+    "total": 60,
+    "top1_accuracy": 35.0,
+    "top3_accuracy": 35.0,
+    "by_kind": {
+      "directo": {
+        "total": 10,
+        "top1": 9,
+        "top3": 9,
+        "top1_accuracy": 90.0,
+        "top3_accuracy": 90.0
+      },
+      "sinonimo": {
+        "total": 14,
+        "top1": 0,
+        "top3": 0,
+        "top1_accuracy": 0.0,
+        "top3_accuracy": 0.0
+      },
+      "multi": {
+        "total": 6,
+        "top1": 1,
+        "top3": 1,
+        "top1_accuracy": 16.7,
+        "top3_accuracy": 16.7
+      },
+      "ingles": {
+        "total": 6,
+        "top1": 0,
+        "top3": 0,
+        "top1_accuracy": 0.0,
+        "top3_accuracy": 0.0
+      },
+      "typo": {
+        "total": 6,
+        "top1": 1,
+        "top3": 1,
+        "top1_accuracy": 16.7,
+        "top3_accuracy": 16.7
+      },
+      "negativo": {
+        "total": 10,
+        "top1": 9,
+        "top3": 9,
+        "top1_accuracy": 90.0,
+        "top3_accuracy": 90.0
+      },
+      "ambiguo": {
+        "total": 8,
+        "top1": 1,
+        "top3": 1,
+        "top1_accuracy": 12.5,
+        "top3_accuracy": 12.5
+      }
+    },
+    "details": [
+      {
+        "query": "hazme flashcards del tema 4 de biología para el examen del viernes",
+        "expected": [
+          "estudio-a-medida"
+        ],
+        "kind": "directo",
+        "got": [
+          "estudio-a-medida"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "prepárame un simulacro de examen de historia según la rúbrica que nos dio la profe",
+        "expected": [
+          "estudio-a-medida"
+        ],
+        "kind": "directo",
+        "got": [
+          "estudio-a-medida"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "necesito copy para una campaña de email de black friday",
+        "expected": [
+          "marca-marketing"
+        ],
+        "kind": "directo",
+        "got": [
+          "marca-marketing"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "optimiza el SEO de mi landing y dime cómo mejorar la conversión",
+        "expected": [
+          "marca-marketing"
+        ],
+        "kind": "directo",
+        "got": [
+          "marca-marketing"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "escríbeme un guion para un reel de 30 segundos sobre mi cafetería, con un buen gancho al principio",
+        "expected": [
+          "guiones-video"
+        ],
+        "kind": "directo",
+        "got": [
+          "guiones-video"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "revisa este pull request, me preocupa que haya inyección SQL en el endpoint de búsqueda",
+        "expected": [
+          "code-review"
+        ],
+        "kind": "directo",
+        "got": [
+          "code-review"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "revisa el diff de este código buscando problemas de rendimiento",
+        "expected": [
+          "code-review"
+        ],
+        "kind": "directo",
+        "got": [
+          "code-review"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "haz una investigación del mercado de patinetes eléctricos en España con varias fuentes y entrégame un informe",
+        "expected": [
+          "deep-research"
+        ],
+        "kind": "directo",
+        "got": [
+          "deep-research"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "tengo este stack trace y no sé de dónde sale el error, ayúdame a diagnosticarlo",
+        "expected": [
+          "debug"
+        ],
+        "kind": "directo",
+        "got": [
+          "debug"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "el fallo solo sale a veces, ayúdame a reproducirlo y aislarlo",
+        "expected": [
+          "debug"
+        ],
+        "kind": "directo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "mañana tengo la prueba final de química orgánica y no me sé nada, ¿me ayudas a prepararla?",
+        "expected": [
+          "estudio-a-medida"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "quiero que me hagas preguntas tipo test sobre la Revolución Francesa para ver si me la sé",
+        "expected": [
+          "estudio-a-medida"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "pasa mis apuntes de anatomía a algo que pueda memorizar en el bus",
+        "expected": [
+          "estudio-a-medida"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "necesito que me ayudes a escribir las descripciones de producto de mi tienda online para que vendan más",
+        "expected": [
+          "marca-marketing"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "¿cómo describo lo que hace mi empresa en una sola frase que enganche en la web?",
+        "expected": [
+          "marca-marketing"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "dame ideas de publicaciones para Instagram de mi peluquería para todo el mes",
+        "expected": [
+          "marca-marketing"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "quiero subir un clip vertical de 45 segundos explicando cómo hago pan de masa madre, ¿qué digo en cada parte?",
+        "expected": [
+          "guiones-video"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "cómo arranco mis clips para que la gente no deslice en los primeros 3 segundos",
+        "expected": [
+          "guiones-video"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "échale un ojo a esta función antes de que la suba a main, a ver si se me escapa algo",
+        "expected": [
+          "code-review"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "¿esta consulta a la base de datos con el input del usuario concatenado es peligrosa?",
+        "expected": [
+          "code-review"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "quiero saber qué dice la literatura científica sobre el ayuno intermitente, contrastando varios artículos y papers",
+        "expected": [
+          "deep-research"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "antes de montar mi negocio de comida vegana a domicilio, averigua quién más lo hace y cuánto cobran",
+        "expected": [
+          "deep-research"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "la app se cierra sola al abrir la cámara en Android y no entiendo por qué",
+        "expected": [
+          "debug"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "el script me devuelve None cuando debería devolver una lista y llevo dos horas sin encontrar el motivo",
+        "expected": [
+          "debug"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "investiga qué tipo de contenido funciona mejor en TikTok para marcas de cosmética y luego escríbeme tres guiones",
+        "expected": [
+          "deep-research",
+          "guiones-video"
+        ],
+        "kind": "multi",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "me salta un error al hacer login y además quiero que revises si el código de autenticación es seguro",
+        "expected": [
+          "debug",
+          "code-review"
+        ],
+        "kind": "multi",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "para el lanzamiento del producto nuevo necesito los textos del email y un guion para un reel promocional",
+        "expected": [
+          "marca-marketing",
+          "guiones-video"
+        ],
+        "kind": "multi",
+        "got": [
+          "guiones-video"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "analiza la competencia en apps de meditación y con eso redacta el copy de nuestra landing",
+        "expected": [
+          "deep-research",
+          "marca-marketing"
+        ],
+        "kind": "multi",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "hazme un resumen de este paper sobre transformers para estudiarlo y búscame otras fuentes que lo comparen con las RNN",
+        "expected": [
+          "estudio-a-medida",
+          "deep-research"
+        ],
+        "kind": "multi",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "convierte el tema del ciclo del agua en un short educativo de 60 segundos y unas tarjetas de repaso para mis alumnos",
+        "expected": [
+          "guiones-video",
+          "estudio-a-medida"
+        ],
+        "kind": "multi",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "can you look over my PR? I think there's a race condition in the cache layer",
+        "expected": [
+          "code-review"
+        ],
+        "kind": "ingles",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "write a script for a 15-second Instagram clip about our new sneakers, something that hooks people fast",
+        "expected": [
+          "guiones-video"
+        ],
+        "kind": "ingles",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "I keep getting 'TypeError: undefined is not a function' in production but it never happens locally",
+        "expected": [
+          "debug"
+        ],
+        "kind": "ingles",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "can you make me a one-page cheat sheet for my statistics midterm?",
+        "expected": [
+          "estudio-a-medida"
+        ],
+        "kind": "ingles",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "dig into the plant-based protein market in the EU and give me a report with sources",
+        "expected": [
+          "deep-research"
+        ],
+        "kind": "ingles",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "need a catchy tagline and a launch newsletter for my SaaS",
+        "expected": [
+          "marca-marketing"
+        ],
+        "kind": "ingles",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "porfa ayudame con el parcial de mate q no entiendo nada de las derivadas",
+        "expected": [
+          "estudio-a-medida"
+        ],
+        "kind": "typo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "nesesito un gion pa un tiktok de mi tienda de ropa q se haga biral",
+        "expected": [
+          "guiones-video"
+        ],
+        "kind": "typo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "me peta el server cada vez q hago deploy, mira el log porfa",
+        "expected": [
+          "debug"
+        ],
+        "kind": "typo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "hazme un review del codigo de mi api antes de pushear, q no quiero liarla",
+        "expected": [
+          "code-review"
+        ],
+        "kind": "typo",
+        "got": [
+          "code-review"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "kiero mas likes y followers en insta pa mi negocio de velas, q posteo??",
+        "expected": [
+          "marca-marketing"
+        ],
+        "kind": "typo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "investigame q onda con los coches electricos en mexico, q marcas venden mas y como va la cosa",
+        "expected": [
+          "deep-research"
+        ],
+        "kind": "typo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "hola, ¿qué tal estás?",
+        "expected": [],
+        "kind": "negativo",
+        "got": [],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "¿cuál es la capital de Australia?",
+        "expected": [],
+        "kind": "negativo",
+        "got": [],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "gracias, eso era todo",
+        "expected": [],
+        "kind": "negativo",
+        "got": [],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "recomiéndame una película de miedo para ver esta noche",
+        "expected": [],
+        "kind": "negativo",
+        "got": [],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "dame una receta fácil de tortilla de patatas",
+        "expected": [],
+        "kind": "negativo",
+        "got": [],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "¿qué marca de zapatillas de running me recomiendas para pies planos?",
+        "expected": [],
+        "kind": "negativo",
+        "got": [],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "mi perro tiene un fallo renal, ¿qué pienso le puedo dar?",
+        "expected": [],
+        "kind": "negativo",
+        "got": [],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "el mayor error de mi vida fue dejar la carrera, ¿crees que debería volver?",
+        "expected": [],
+        "kind": "negativo",
+        "got": [],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "¿cuál es la escena más famosa de Titanic?",
+        "expected": [],
+        "kind": "negativo",
+        "got": [
+          "guiones-video"
+        ],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "¿sabes cuál es el email de atención al cliente de Renfe?",
+        "expected": [],
+        "kind": "negativo",
+        "got": [],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "mi web tarda muchísimo en cargar, ¿qué hago?",
+        "expected": [
+          "debug",
+          "code-review"
+        ],
+        "kind": "ambiguo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "ayúdame con mi canal de YouTube, no crece",
+        "expected": [
+          "marca-marketing",
+          "guiones-video"
+        ],
+        "kind": "ambiguo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "esto no funciona y no sé por qué",
+        "expected": [
+          "debug"
+        ],
+        "kind": "ambiguo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "mira este código a ver qué te parece",
+        "expected": [
+          "code-review"
+        ],
+        "kind": "ambiguo",
+        "got": [
+          "code-review"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "hazme un análisis de por qué han bajado las ventas este trimestre",
+        "expected": [
+          "deep-research",
+          "marca-marketing"
+        ],
+        "kind": "ambiguo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "tengo que presentar un trabajo sobre el cambio climático la semana que viene",
+        "expected": [
+          "deep-research",
+          "estudio-a-medida"
+        ],
+        "kind": "ambiguo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "quiero que mi negocio se vea más profesional en internet",
+        "expected": [
+          "marca-marketing"
+        ],
+        "kind": "ambiguo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "me han suspendido el último examen y quiero saber en qué fallé",
+        "expected": [
+          "estudio-a-medida"
+        ],
+        "kind": "ambiguo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      }
+    ]
+  },
+  "concepts": {
+    "total": 60,
+    "top1_accuracy": 40.0,
+    "top3_accuracy": 40.0,
+    "by_kind": {
+      "directo": {
+        "total": 10,
+        "top1": 10,
+        "top3": 10,
+        "top1_accuracy": 100.0,
+        "top3_accuracy": 100.0
+      },
+      "sinonimo": {
+        "total": 14,
+        "top1": 0,
+        "top3": 0,
+        "top1_accuracy": 0.0,
+        "top3_accuracy": 0.0
+      },
+      "multi": {
+        "total": 6,
+        "top1": 4,
+        "top3": 4,
+        "top1_accuracy": 66.7,
+        "top3_accuracy": 66.7
+      },
+      "ingles": {
+        "total": 6,
+        "top1": 0,
+        "top3": 0,
+        "top1_accuracy": 0.0,
+        "top3_accuracy": 0.0
+      },
+      "typo": {
+        "total": 6,
+        "top1": 2,
+        "top3": 2,
+        "top1_accuracy": 33.3,
+        "top3_accuracy": 33.3
+      },
+      "negativo": {
+        "total": 10,
+        "top1": 5,
+        "top3": 5,
+        "top1_accuracy": 50.0,
+        "top3_accuracy": 50.0
+      },
+      "ambiguo": {
+        "total": 8,
+        "top1": 3,
+        "top3": 3,
+        "top1_accuracy": 37.5,
+        "top3_accuracy": 37.5
+      }
+    },
+    "details": [
+      {
+        "query": "hazme flashcards del tema 4 de biología para el examen del viernes",
+        "expected": [
+          "estudio-a-medida"
+        ],
+        "kind": "directo",
+        "got": [
+          "estudio-a-medida"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "prepárame un simulacro de examen de historia según la rúbrica que nos dio la profe",
+        "expected": [
+          "estudio-a-medida"
+        ],
+        "kind": "directo",
+        "got": [
+          "estudio-a-medida"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "necesito copy para una campaña de email de black friday",
+        "expected": [
+          "marca-marketing"
+        ],
+        "kind": "directo",
+        "got": [
+          "marca-marketing"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "optimiza el SEO de mi landing y dime cómo mejorar la conversión",
+        "expected": [
+          "marca-marketing"
+        ],
+        "kind": "directo",
+        "got": [
+          "marca-marketing"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "escríbeme un guion para un reel de 30 segundos sobre mi cafetería, con un buen gancho al principio",
+        "expected": [
+          "guiones-video"
+        ],
+        "kind": "directo",
+        "got": [
+          "guiones-video"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "revisa este pull request, me preocupa que haya inyección SQL en el endpoint de búsqueda",
+        "expected": [
+          "code-review"
+        ],
+        "kind": "directo",
+        "got": [
+          "code-review"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "revisa el diff de este código buscando problemas de rendimiento",
+        "expected": [
+          "code-review"
+        ],
+        "kind": "directo",
+        "got": [
+          "code-review"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "haz una investigación del mercado de patinetes eléctricos en España con varias fuentes y entrégame un informe",
+        "expected": [
+          "deep-research"
+        ],
+        "kind": "directo",
+        "got": [
+          "deep-research"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "tengo este stack trace y no sé de dónde sale el error, ayúdame a diagnosticarlo",
+        "expected": [
+          "debug"
+        ],
+        "kind": "directo",
+        "got": [
+          "debug"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "el fallo solo sale a veces, ayúdame a reproducirlo y aislarlo",
+        "expected": [
+          "debug"
+        ],
+        "kind": "directo",
+        "got": [
+          "debug"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "mañana tengo la prueba final de química orgánica y no me sé nada, ¿me ayudas a prepararla?",
+        "expected": [
+          "estudio-a-medida"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "quiero que me hagas preguntas tipo test sobre la Revolución Francesa para ver si me la sé",
+        "expected": [
+          "estudio-a-medida"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "pasa mis apuntes de anatomía a algo que pueda memorizar en el bus",
+        "expected": [
+          "estudio-a-medida"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "necesito que me ayudes a escribir las descripciones de producto de mi tienda online para que vendan más",
+        "expected": [
+          "marca-marketing"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "¿cómo describo lo que hace mi empresa en una sola frase que enganche en la web?",
+        "expected": [
+          "marca-marketing"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "dame ideas de publicaciones para Instagram de mi peluquería para todo el mes",
+        "expected": [
+          "marca-marketing"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "quiero subir un clip vertical de 45 segundos explicando cómo hago pan de masa madre, ¿qué digo en cada parte?",
+        "expected": [
+          "guiones-video"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "cómo arranco mis clips para que la gente no deslice en los primeros 3 segundos",
+        "expected": [
+          "guiones-video"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "échale un ojo a esta función antes de que la suba a main, a ver si se me escapa algo",
+        "expected": [
+          "code-review"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "¿esta consulta a la base de datos con el input del usuario concatenado es peligrosa?",
+        "expected": [
+          "code-review"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "quiero saber qué dice la literatura científica sobre el ayuno intermitente, contrastando varios artículos y papers",
+        "expected": [
+          "deep-research"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "antes de montar mi negocio de comida vegana a domicilio, averigua quién más lo hace y cuánto cobran",
+        "expected": [
+          "deep-research"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "la app se cierra sola al abrir la cámara en Android y no entiendo por qué",
+        "expected": [
+          "debug"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "el script me devuelve None cuando debería devolver una lista y llevo dos horas sin encontrar el motivo",
+        "expected": [
+          "debug"
+        ],
+        "kind": "sinonimo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "investiga qué tipo de contenido funciona mejor en TikTok para marcas de cosmética y luego escríbeme tres guiones",
+        "expected": [
+          "deep-research",
+          "guiones-video"
+        ],
+        "kind": "multi",
+        "got": [
+          "guiones-video"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "me salta un error al hacer login y además quiero que revises si el código de autenticación es seguro",
+        "expected": [
+          "debug",
+          "code-review"
+        ],
+        "kind": "multi",
+        "got": [
+          "code-review",
+          "debug"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "para el lanzamiento del producto nuevo necesito los textos del email y un guion para un reel promocional",
+        "expected": [
+          "marca-marketing",
+          "guiones-video"
+        ],
+        "kind": "multi",
+        "got": [
+          "guiones-video",
+          "marca-marketing"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "analiza la competencia en apps de meditación y con eso redacta el copy de nuestra landing",
+        "expected": [
+          "deep-research",
+          "marca-marketing"
+        ],
+        "kind": "multi",
+        "got": [
+          "marca-marketing"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "hazme un resumen de este paper sobre transformers para estudiarlo y búscame otras fuentes que lo comparen con las RNN",
+        "expected": [
+          "estudio-a-medida",
+          "deep-research"
+        ],
+        "kind": "multi",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "convierte el tema del ciclo del agua en un short educativo de 60 segundos y unas tarjetas de repaso para mis alumnos",
+        "expected": [
+          "guiones-video",
+          "estudio-a-medida"
+        ],
+        "kind": "multi",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "can you look over my PR? I think there's a race condition in the cache layer",
+        "expected": [
+          "code-review"
+        ],
+        "kind": "ingles",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "write a script for a 15-second Instagram clip about our new sneakers, something that hooks people fast",
+        "expected": [
+          "guiones-video"
+        ],
+        "kind": "ingles",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "I keep getting 'TypeError: undefined is not a function' in production but it never happens locally",
+        "expected": [
+          "debug"
+        ],
+        "kind": "ingles",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "can you make me a one-page cheat sheet for my statistics midterm?",
+        "expected": [
+          "estudio-a-medida"
+        ],
+        "kind": "ingles",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "dig into the plant-based protein market in the EU and give me a report with sources",
+        "expected": [
+          "deep-research"
+        ],
+        "kind": "ingles",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "need a catchy tagline and a launch newsletter for my SaaS",
+        "expected": [
+          "marca-marketing"
+        ],
+        "kind": "ingles",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "porfa ayudame con el parcial de mate q no entiendo nada de las derivadas",
+        "expected": [
+          "estudio-a-medida"
+        ],
+        "kind": "typo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "nesesito un gion pa un tiktok de mi tienda de ropa q se haga biral",
+        "expected": [
+          "guiones-video"
+        ],
+        "kind": "typo",
+        "got": [
+          "guiones-video"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "me peta el server cada vez q hago deploy, mira el log porfa",
+        "expected": [
+          "debug"
+        ],
+        "kind": "typo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "hazme un review del codigo de mi api antes de pushear, q no quiero liarla",
+        "expected": [
+          "code-review"
+        ],
+        "kind": "typo",
+        "got": [
+          "code-review"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "kiero mas likes y followers en insta pa mi negocio de velas, q posteo??",
+        "expected": [
+          "marca-marketing"
+        ],
+        "kind": "typo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "investigame q onda con los coches electricos en mexico, q marcas venden mas y como va la cosa",
+        "expected": [
+          "deep-research"
+        ],
+        "kind": "typo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "hola, ¿qué tal estás?",
+        "expected": [],
+        "kind": "negativo",
+        "got": [],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "¿cuál es la capital de Australia?",
+        "expected": [],
+        "kind": "negativo",
+        "got": [],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "gracias, eso era todo",
+        "expected": [],
+        "kind": "negativo",
+        "got": [],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "recomiéndame una película de miedo para ver esta noche",
+        "expected": [],
+        "kind": "negativo",
+        "got": [],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "dame una receta fácil de tortilla de patatas",
+        "expected": [],
+        "kind": "negativo",
+        "got": [],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "¿qué marca de zapatillas de running me recomiendas para pies planos?",
+        "expected": [],
+        "kind": "negativo",
+        "got": [
+          "marca-marketing"
+        ],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "mi perro tiene un fallo renal, ¿qué pienso le puedo dar?",
+        "expected": [],
+        "kind": "negativo",
+        "got": [
+          "debug"
+        ],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "el mayor error de mi vida fue dejar la carrera, ¿crees que debería volver?",
+        "expected": [],
+        "kind": "negativo",
+        "got": [
+          "debug"
+        ],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "¿cuál es la escena más famosa de Titanic?",
+        "expected": [],
+        "kind": "negativo",
+        "got": [
+          "guiones-video"
+        ],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "¿sabes cuál es el email de atención al cliente de Renfe?",
+        "expected": [],
+        "kind": "negativo",
+        "got": [
+          "marca-marketing"
+        ],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "mi web tarda muchísimo en cargar, ¿qué hago?",
+        "expected": [
+          "debug",
+          "code-review"
+        ],
+        "kind": "ambiguo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "ayúdame con mi canal de YouTube, no crece",
+        "expected": [
+          "marca-marketing",
+          "guiones-video"
+        ],
+        "kind": "ambiguo",
+        "got": [
+          "guiones-video"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "esto no funciona y no sé por qué",
+        "expected": [
+          "debug"
+        ],
+        "kind": "ambiguo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "mira este código a ver qué te parece",
+        "expected": [
+          "code-review"
+        ],
+        "kind": "ambiguo",
+        "got": [
+          "code-review"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "hazme un análisis de por qué han bajado las ventas este trimestre",
+        "expected": [
+          "deep-research",
+          "marca-marketing"
+        ],
+        "kind": "ambiguo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "tengo que presentar un trabajo sobre el cambio climático la semana que viene",
+        "expected": [
+          "deep-research",
+          "estudio-a-medida"
+        ],
+        "kind": "ambiguo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "quiero que mi negocio se vea más profesional en internet",
+        "expected": [
+          "marca-marketing"
+        ],
+        "kind": "ambiguo",
+        "got": [],
+        "top1": false,
+        "top3": false
+      },
+      {
+        "query": "me han suspendido el último examen y quiero saber en qué fallé",
+        "expected": [
+          "estudio-a-medida"
+        ],
+        "kind": "ambiguo",
+        "got": [
+          "estudio-a-medida"
+        ],
+        "top1": true,
+        "top3": true
+      }
+    ]
+  },
+  "llm": {
+    "total": 60,
+    "top1_accuracy": 100.0,
+    "top3_accuracy": 100.0,
+    "by_kind": {
+      "directo": {
+        "total": 10,
+        "top1": 10,
+        "top3": 10,
+        "top1_accuracy": 100.0,
+        "top3_accuracy": 100.0
+      },
+      "sinonimo": {
+        "total": 14,
+        "top1": 14,
+        "top3": 14,
+        "top1_accuracy": 100.0,
+        "top3_accuracy": 100.0
+      },
+      "multi": {
+        "total": 6,
+        "top1": 6,
+        "top3": 6,
+        "top1_accuracy": 100.0,
+        "top3_accuracy": 100.0
+      },
+      "ingles": {
+        "total": 6,
+        "top1": 6,
+        "top3": 6,
+        "top1_accuracy": 100.0,
+        "top3_accuracy": 100.0
+      },
+      "typo": {
+        "total": 6,
+        "top1": 6,
+        "top3": 6,
+        "top1_accuracy": 100.0,
+        "top3_accuracy": 100.0
+      },
+      "negativo": {
+        "total": 10,
+        "top1": 10,
+        "top3": 10,
+        "top1_accuracy": 100.0,
+        "top3_accuracy": 100.0
+      },
+      "ambiguo": {
+        "total": 8,
+        "top1": 8,
+        "top3": 8,
+        "top1_accuracy": 100.0,
+        "top3_accuracy": 100.0
+      }
+    },
+    "details": [
+      {
+        "query": "hazme flashcards del tema 4 de biología para el examen del viernes",
+        "expected": [
+          "estudio-a-medida"
+        ],
+        "kind": "directo",
+        "got": [
+          "estudio-a-medida"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "prepárame un simulacro de examen de historia según la rúbrica que nos dio la profe",
+        "expected": [
+          "estudio-a-medida"
+        ],
+        "kind": "directo",
+        "got": [
+          "estudio-a-medida"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "necesito copy para una campaña de email de black friday",
+        "expected": [
+          "marca-marketing"
+        ],
+        "kind": "directo",
+        "got": [
+          "marca-marketing"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "optimiza el SEO de mi landing y dime cómo mejorar la conversión",
+        "expected": [
+          "marca-marketing"
+        ],
+        "kind": "directo",
+        "got": [
+          "marca-marketing",
+          "deep-research"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "escríbeme un guion para un reel de 30 segundos sobre mi cafetería, con un buen gancho al principio",
+        "expected": [
+          "guiones-video"
+        ],
+        "kind": "directo",
+        "got": [
+          "guiones-video",
+          "marca-marketing"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "revisa este pull request, me preocupa que haya inyección SQL en el endpoint de búsqueda",
+        "expected": [
+          "code-review"
+        ],
+        "kind": "directo",
+        "got": [
+          "code-review",
+          "debug"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "revisa el diff de este código buscando problemas de rendimiento",
+        "expected": [
+          "code-review"
+        ],
+        "kind": "directo",
+        "got": [
+          "code-review"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "haz una investigación del mercado de patinetes eléctricos en España con varias fuentes y entrégame un informe",
+        "expected": [
+          "deep-research"
+        ],
+        "kind": "directo",
+        "got": [
+          "deep-research"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "tengo este stack trace y no sé de dónde sale el error, ayúdame a diagnosticarlo",
+        "expected": [
+          "debug"
+        ],
+        "kind": "directo",
+        "got": [
+          "debug",
+          "code-review"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "el fallo solo sale a veces, ayúdame a reproducirlo y aislarlo",
+        "expected": [
+          "debug"
+        ],
+        "kind": "directo",
+        "got": [
+          "debug"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "mañana tengo la prueba final de química orgánica y no me sé nada, ¿me ayudas a prepararla?",
+        "expected": [
+          "estudio-a-medida"
+        ],
+        "kind": "sinonimo",
+        "got": [
+          "estudio-a-medida"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "quiero que me hagas preguntas tipo test sobre la Revolución Francesa para ver si me la sé",
+        "expected": [
+          "estudio-a-medida"
+        ],
+        "kind": "sinonimo",
+        "got": [
+          "estudio-a-medida"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "pasa mis apuntes de anatomía a algo que pueda memorizar en el bus",
+        "expected": [
+          "estudio-a-medida"
+        ],
+        "kind": "sinonimo",
+        "got": [
+          "estudio-a-medida"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "necesito que me ayudes a escribir las descripciones de producto de mi tienda online para que vendan más",
+        "expected": [
+          "marca-marketing"
+        ],
+        "kind": "sinonimo",
+        "got": [
+          "marca-marketing",
+          "deep-research"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "¿cómo describo lo que hace mi empresa en una sola frase que enganche en la web?",
+        "expected": [
+          "marca-marketing"
+        ],
+        "kind": "sinonimo",
+        "got": [
+          "marca-marketing"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "dame ideas de publicaciones para Instagram de mi peluquería para todo el mes",
+        "expected": [
+          "marca-marketing"
+        ],
+        "kind": "sinonimo",
+        "got": [
+          "marca-marketing",
+          "guiones-video"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "quiero subir un clip vertical de 45 segundos explicando cómo hago pan de masa madre, ¿qué digo en cada parte?",
+        "expected": [
+          "guiones-video"
+        ],
+        "kind": "sinonimo",
+        "got": [
+          "guiones-video",
+          "marca-marketing"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "cómo arranco mis clips para que la gente no deslice en los primeros 3 segundos",
+        "expected": [
+          "guiones-video"
+        ],
+        "kind": "sinonimo",
+        "got": [
+          "guiones-video",
+          "marca-marketing"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "échale un ojo a esta función antes de que la suba a main, a ver si se me escapa algo",
+        "expected": [
+          "code-review"
+        ],
+        "kind": "sinonimo",
+        "got": [
+          "code-review",
+          "debug"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "¿esta consulta a la base de datos con el input del usuario concatenado es peligrosa?",
+        "expected": [
+          "code-review"
+        ],
+        "kind": "sinonimo",
+        "got": [
+          "code-review"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "quiero saber qué dice la literatura científica sobre el ayuno intermitente, contrastando varios artículos y papers",
+        "expected": [
+          "deep-research"
+        ],
+        "kind": "sinonimo",
+        "got": [
+          "deep-research"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "antes de montar mi negocio de comida vegana a domicilio, averigua quién más lo hace y cuánto cobran",
+        "expected": [
+          "deep-research"
+        ],
+        "kind": "sinonimo",
+        "got": [
+          "deep-research",
+          "marca-marketing"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "la app se cierra sola al abrir la cámara en Android y no entiendo por qué",
+        "expected": [
+          "debug"
+        ],
+        "kind": "sinonimo",
+        "got": [
+          "debug",
+          "code-review"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "el script me devuelve None cuando debería devolver una lista y llevo dos horas sin encontrar el motivo",
+        "expected": [
+          "debug"
+        ],
+        "kind": "sinonimo",
+        "got": [
+          "debug",
+          "code-review"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "investiga qué tipo de contenido funciona mejor en TikTok para marcas de cosmética y luego escríbeme tres guiones",
+        "expected": [
+          "deep-research",
+          "guiones-video"
+        ],
+        "kind": "multi",
+        "got": [
+          "guiones-video",
+          "deep-research",
+          "marca-marketing"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "me salta un error al hacer login y además quiero que revises si el código de autenticación es seguro",
+        "expected": [
+          "debug",
+          "code-review"
+        ],
+        "kind": "multi",
+        "got": [
+          "debug",
+          "code-review"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "para el lanzamiento del producto nuevo necesito los textos del email y un guion para un reel promocional",
+        "expected": [
+          "marca-marketing",
+          "guiones-video"
+        ],
+        "kind": "multi",
+        "got": [
+          "marca-marketing",
+          "guiones-video"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "analiza la competencia en apps de meditación y con eso redacta el copy de nuestra landing",
+        "expected": [
+          "deep-research",
+          "marca-marketing"
+        ],
+        "kind": "multi",
+        "got": [
+          "marca-marketing",
+          "deep-research"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "hazme un resumen de este paper sobre transformers para estudiarlo y búscame otras fuentes que lo comparen con las RNN",
+        "expected": [
+          "estudio-a-medida",
+          "deep-research"
+        ],
+        "kind": "multi",
+        "got": [
+          "estudio-a-medida",
+          "deep-research"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "convierte el tema del ciclo del agua en un short educativo de 60 segundos y unas tarjetas de repaso para mis alumnos",
+        "expected": [
+          "guiones-video",
+          "estudio-a-medida"
+        ],
+        "kind": "multi",
+        "got": [
+          "guiones-video",
+          "estudio-a-medida"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "can you look over my PR? I think there's a race condition in the cache layer",
+        "expected": [
+          "code-review"
+        ],
+        "kind": "ingles",
+        "got": [
+          "code-review",
+          "debug"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "write a script for a 15-second Instagram clip about our new sneakers, something that hooks people fast",
+        "expected": [
+          "guiones-video"
+        ],
+        "kind": "ingles",
+        "got": [
+          "guiones-video",
+          "marca-marketing"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "I keep getting 'TypeError: undefined is not a function' in production but it never happens locally",
+        "expected": [
+          "debug"
+        ],
+        "kind": "ingles",
+        "got": [
+          "debug",
+          "code-review"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "can you make me a one-page cheat sheet for my statistics midterm?",
+        "expected": [
+          "estudio-a-medida"
+        ],
+        "kind": "ingles",
+        "got": [
+          "estudio-a-medida"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "dig into the plant-based protein market in the EU and give me a report with sources",
+        "expected": [
+          "deep-research"
+        ],
+        "kind": "ingles",
+        "got": [
+          "deep-research"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "need a catchy tagline and a launch newsletter for my SaaS",
+        "expected": [
+          "marca-marketing"
+        ],
+        "kind": "ingles",
+        "got": [
+          "marca-marketing"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "porfa ayudame con el parcial de mate q no entiendo nada de las derivadas",
+        "expected": [
+          "estudio-a-medida"
+        ],
+        "kind": "typo",
+        "got": [
+          "estudio-a-medida"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "nesesito un gion pa un tiktok de mi tienda de ropa q se haga biral",
+        "expected": [
+          "guiones-video"
+        ],
+        "kind": "typo",
+        "got": [
+          "guiones-video",
+          "marca-marketing"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "me peta el server cada vez q hago deploy, mira el log porfa",
+        "expected": [
+          "debug"
+        ],
+        "kind": "typo",
+        "got": [
+          "debug",
+          "code-review"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "hazme un review del codigo de mi api antes de pushear, q no quiero liarla",
+        "expected": [
+          "code-review"
+        ],
+        "kind": "typo",
+        "got": [
+          "code-review",
+          "debug"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "kiero mas likes y followers en insta pa mi negocio de velas, q posteo??",
+        "expected": [
+          "marca-marketing"
+        ],
+        "kind": "typo",
+        "got": [
+          "marca-marketing",
+          "guiones-video"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "investigame q onda con los coches electricos en mexico, q marcas venden mas y como va la cosa",
+        "expected": [
+          "deep-research"
+        ],
+        "kind": "typo",
+        "got": [
+          "deep-research"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "hola, ¿qué tal estás?",
+        "expected": [],
+        "kind": "negativo",
+        "got": [],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "¿cuál es la capital de Australia?",
+        "expected": [],
+        "kind": "negativo",
+        "got": [],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "gracias, eso era todo",
+        "expected": [],
+        "kind": "negativo",
+        "got": [],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "recomiéndame una película de miedo para ver esta noche",
+        "expected": [],
+        "kind": "negativo",
+        "got": [],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "dame una receta fácil de tortilla de patatas",
+        "expected": [],
+        "kind": "negativo",
+        "got": [],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "¿qué marca de zapatillas de running me recomiendas para pies planos?",
+        "expected": [],
+        "kind": "negativo",
+        "got": [],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "mi perro tiene un fallo renal, ¿qué pienso le puedo dar?",
+        "expected": [],
+        "kind": "negativo",
+        "got": [],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "el mayor error de mi vida fue dejar la carrera, ¿crees que debería volver?",
+        "expected": [],
+        "kind": "negativo",
+        "got": [],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "¿cuál es la escena más famosa de Titanic?",
+        "expected": [],
+        "kind": "negativo",
+        "got": [],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "¿sabes cuál es el email de atención al cliente de Renfe?",
+        "expected": [],
+        "kind": "negativo",
+        "got": [],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "mi web tarda muchísimo en cargar, ¿qué hago?",
+        "expected": [
+          "debug",
+          "code-review"
+        ],
+        "kind": "ambiguo",
+        "got": [
+          "debug",
+          "code-review"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "ayúdame con mi canal de YouTube, no crece",
+        "expected": [
+          "marca-marketing",
+          "guiones-video"
+        ],
+        "kind": "ambiguo",
+        "got": [
+          "guiones-video",
+          "marca-marketing",
+          "deep-research"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "esto no funciona y no sé por qué",
+        "expected": [
+          "debug"
+        ],
+        "kind": "ambiguo",
+        "got": [
+          "debug",
+          "code-review"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "mira este código a ver qué te parece",
+        "expected": [
+          "code-review"
+        ],
+        "kind": "ambiguo",
+        "got": [
+          "code-review"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "hazme un análisis de por qué han bajado las ventas este trimestre",
+        "expected": [
+          "deep-research",
+          "marca-marketing"
+        ],
+        "kind": "ambiguo",
+        "got": [
+          "deep-research",
+          "marca-marketing"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "tengo que presentar un trabajo sobre el cambio climático la semana que viene",
+        "expected": [
+          "deep-research",
+          "estudio-a-medida"
+        ],
+        "kind": "ambiguo",
+        "got": [
+          "deep-research",
+          "estudio-a-medida",
+          "guiones-video"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "quiero que mi negocio se vea más profesional en internet",
+        "expected": [
+          "marca-marketing"
+        ],
+        "kind": "ambiguo",
+        "got": [
+          "marca-marketing",
+          "guiones-video",
+          "deep-research"
+        ],
+        "top1": true,
+        "top3": true
+      },
+      {
+        "query": "me han suspendido el último examen y quiero saber en qué fallé",
+        "expected": [
+          "estudio-a-medida"
+        ],
+        "kind": "ambiguo",
+        "got": [
+          "estudio-a-medida"
+        ],
+        "top1": true,
+        "top3": true
+      }
+    ],
+    "llm_errors": 0,
+    "llm_cached": 0
+  }
+}
